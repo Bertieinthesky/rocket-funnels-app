@@ -39,6 +39,7 @@ import {
   Eye
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -224,6 +225,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 Viewing as {demoView}
               </Badge>
             )}
+            <div className="flex-1" />
+            <NotificationCenter />
           </header>
           <main className="flex-1 p-6">
             {children}
