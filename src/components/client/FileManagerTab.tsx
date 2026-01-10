@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileCard } from '@/components/files/FileCard';
 import { FlagModal } from '@/components/files/FlagModal';
@@ -24,7 +24,11 @@ import {
   Flag,
   User,
   Loader2,
-  FolderOpen
+  FolderOpen,
+  Search,
+  Palette,
+  X,
+  Link as LinkIcon
 } from 'lucide-react';
 
 type FileCategory = 'documents' | 'images' | 'testimonials' | 'video' | 'brand' | 'content' | 'designs' | 'copy' | 'other';
@@ -44,6 +48,8 @@ interface FileRecord {
   is_pinned_to_dashboard?: boolean;
   is_favorite?: boolean;
   uploaded_by?: string;
+  is_external_link?: boolean;
+  external_platform?: string;
 }
 
 interface FileFlag {
@@ -72,16 +78,19 @@ interface FileManagerTabProps {
   projects: Project[];
 }
 
-const categoryConfig = {
-  documents: { icon: FileText, label: 'Documents', color: 'text-blue-500' },
-  images: { icon: Image, label: 'Images', color: 'text-green-500' },
-  testimonials: { icon: Star, label: 'Testimonials', color: 'text-yellow-500' },
-  video: { icon: Video, label: 'Videos', color: 'text-purple-500' },
-  brand: { icon: FileText, label: 'Brand', color: 'text-pink-500' },
-  content: { icon: FileText, label: 'Content', color: 'text-cyan-500' },
-  designs: { icon: Image, label: 'Designs', color: 'text-orange-500' },
-  copy: { icon: FileText, label: 'Copy', color: 'text-indigo-500' },
-  other: { icon: FileText, label: 'Other', color: 'text-gray-500' },
+const categories = [
+  { value: 'documents', label: 'Documents', icon: FileText },
+  { value: 'images', label: 'Images', icon: Image },
+  { value: 'designs', label: 'Design Files', icon: Palette },
+  { value: 'testimonials', label: 'Testimonials', icon: Star },
+  { value: 'video', label: 'Video', icon: Video },
+];
+
+const formatFileSize = (bytes: number | null) => {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
@@ -94,20 +103,25 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
   const [flags, setFlags] = useState<FileFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [showMyUploads, setShowMyUploads] = useState(false);
   const [showFlagged, setShowFlagged] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
 
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadMethod, setUploadMethod] = useState<'file' | 'link'>('file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [externalLink, setExternalLink] = useState('');
   const [uploadForm, setUploadForm] = useState({
     title: '',
     category: 'documents' as FileCategory,
     project_id: '',
     description: '',
-    video_hosted_link: '',
   });
 
   // Edit modal state
@@ -166,7 +180,6 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
 
   const fetchFlags = async () => {
     try {
-      // Get all file IDs for this company first
       const { data: companyFiles } = await supabase
         .from('files')
         .select('id')
@@ -200,67 +213,113 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
 
     setSelectedFile(file);
     setUploadForm(prev => ({ ...prev, title: file.name.replace(/\.[^/.]+$/, '') }));
-    setShowUploadModal(true);
     
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
+  const detectExternalPlatform = (url: string): string | null => {
+    if (url.includes('docs.google.com')) return 'Google Docs';
+    if (url.includes('sheets.google.com')) return 'Google Sheets';
+    if (url.includes('drive.google.com')) return 'Google Drive';
+    if (url.includes('figma.com')) return 'Figma';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
+    if (url.includes('vimeo.com')) return 'Vimeo';
+    if (url.includes('loom.com')) return 'Loom';
+    if (url.includes('canva.com')) return 'Canva';
+    if (url.includes('dropbox.com')) return 'Dropbox';
+    return null;
+  };
+
   const handleUpload = async () => {
-    if (!selectedFile || !uploadForm.title) {
-      toast({ title: 'Please fill in required fields', variant: 'destructive' });
+    const isLinkUpload = uploadMethod === 'link';
+    
+    if (isLinkUpload && !externalLink) {
+      toast({ title: 'Please enter a link', variant: 'destructive' });
+      return;
+    }
+    
+    if (!isLinkUpload && !selectedFile) {
+      toast({ title: 'Please select a file', variant: 'destructive' });
       return;
     }
 
-    if (uploadForm.category === 'video' && !uploadForm.video_hosted_link) {
-      toast({ title: 'Video files require a hosted video link', variant: 'destructive' });
+    if (!uploadForm.title) {
+      toast({ title: 'Please enter a title', variant: 'destructive' });
       return;
     }
 
     setUploading(true);
     try {
-      const fileExt = selectedFile.name.split('.').pop();
-      const filePath = `${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      if (isLinkUpload) {
+        // Add external link
+        const { error: dbError } = await supabase
+          .from('files')
+          .insert({
+            company_id: companyId,
+            name: uploadForm.title,
+            title: uploadForm.title,
+            description: uploadForm.description || null,
+            file_url: externalLink,
+            category: uploadForm.category,
+            project_id: uploadForm.project_id || null,
+            uploaded_by: user?.id,
+            is_external_link: true,
+            external_platform: detectExternalPlatform(externalLink),
+          });
 
-      const { error: uploadError } = await supabase.storage
-        .from('portal-files')
-        .upload(filePath, selectedFile);
+        if (dbError) throw dbError;
+      } else {
+        // Upload file
+        const fileExt = selectedFile!.name.split('.').pop();
+        const filePath = `${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('portal-files')
+          .upload(filePath, selectedFile!);
 
-      const { data: urlData } = supabase.storage
-        .from('portal-files')
-        .getPublicUrl(filePath);
+        if (uploadError) throw uploadError;
 
-      const { error: dbError } = await supabase
-        .from('files')
-        .insert({
-          company_id: companyId,
-          name: selectedFile.name,
-          title: uploadForm.title,
-          description: uploadForm.description || null,
-          file_url: urlData.publicUrl,
-          file_size: selectedFile.size,
-          mime_type: selectedFile.type,
-          category: uploadForm.category,
-          project_id: uploadForm.project_id || null,
-          video_hosted_link: uploadForm.video_hosted_link || null,
-          uploaded_by: user?.id,
-        });
+        const { data: urlData } = supabase.storage
+          .from('portal-files')
+          .getPublicUrl(filePath);
 
-      if (dbError) throw dbError;
+        const { error: dbError } = await supabase
+          .from('files')
+          .insert({
+            company_id: companyId,
+            name: selectedFile!.name,
+            title: uploadForm.title,
+            description: uploadForm.description || null,
+            file_url: urlData.publicUrl,
+            file_size: selectedFile!.size,
+            mime_type: selectedFile!.type,
+            category: uploadForm.category,
+            project_id: uploadForm.project_id || null,
+            uploaded_by: user?.id,
+            is_external_link: false,
+          });
 
-      toast({ title: 'File uploaded successfully!' });
-      setShowUploadModal(false);
-      setSelectedFile(null);
-      setUploadForm({ title: '', category: 'documents', project_id: '', description: '', video_hosted_link: '' });
+        if (dbError) throw dbError;
+      }
+
+      toast({ title: isLinkUpload ? 'Link added successfully!' : 'File uploaded successfully!' });
+      resetUploadModal();
       fetchFiles();
     } catch (error: any) {
       toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
     } finally {
       setUploading(false);
     }
+  };
+
+  const resetUploadModal = () => {
+    setShowUploadModal(false);
+    setSelectedFile(null);
+    setExternalLink('');
+    setUploadMethod('file');
+    setUploadForm({ title: '', category: 'documents', project_id: '', description: '' });
   };
 
   const handleEdit = (file: FileRecord) => {
@@ -406,6 +465,14 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     }
   };
 
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
   const getProjectName = (projectId: string | null) => {
     if (!projectId) return 'Global';
     const project = projects.find(p => p.id === projectId);
@@ -416,32 +483,46 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     return flags.filter(f => f.file_id === fileId);
   };
 
+  const getCategoryCount = (category: string) => {
+    return files.filter(f => f.category === category).length;
+  };
+
   // Filter files
   const filteredFiles = files.filter(f => {
-    const categoryMatch = activeCategory === 'all' || f.category === activeCategory;
+    // Search filter
+    const searchMatch = !searchQuery || 
+      (f.title?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (f.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (f.description?.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Category filter (multi-select: if none selected, show all)
+    const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(f.category);
+    
+    // Project filter
     const projectMatch = projectFilter === 'all' || 
       (projectFilter === 'global' && !f.project_id) ||
       f.project_id === projectFilter;
+    
+    // My uploads filter
     const myUploadsMatch = !showMyUploads || f.uploaded_by === user?.id;
+    
+    // Flagged filter
     const flaggedMatch = !showFlagged || flags.some(flag => 
       flag.file_id === f.id && !flag.resolved
     );
-    return categoryMatch && projectMatch && myUploadsMatch && flaggedMatch;
+
+    // Favorites filter
+    const favoritesMatch = !showFavorites || f.is_favorite;
+    
+    return searchMatch && categoryMatch && projectMatch && myUploadsMatch && flaggedMatch && favoritesMatch;
   });
 
-  // Count by category
-  const categoryCounts = {
-    documents: files.filter(f => f.category === 'documents').length,
-    images: files.filter(f => f.category === 'images').length,
-    testimonials: files.filter(f => f.category === 'testimonials').length,
-    video: files.filter(f => f.category === 'video').length,
-  };
-
+  // Counts
   const flaggedCount = files.filter(f => 
     flags.some(flag => flag.file_id === f.id && !flag.resolved)
   ).length;
-
   const myUploadsCount = files.filter(f => f.uploaded_by === user?.id).length;
+  const favoritesCount = files.filter(f => f.is_favorite).length;
 
   if (loading) {
     return (
@@ -453,61 +534,52 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">All Project Files</h3>
-          <p className="text-sm text-muted-foreground">
-            All files related to this client, including uploads and team deliverables.
-          </p>
+      {/* Title Section */}
+      <div>
+        <h3 className="text-lg font-semibold">All Project Files</h3>
+        <p className="text-sm text-muted-foreground">
+          All files related to this client, including uploads and team deliverables.
+        </p>
+      </div>
+
+      {/* Header Row 1: Search + Project Filter */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        {/* Search Bar */}
+        <div className="relative flex-1 max-w-md w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search files..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Project Filter with Label */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Project:</span>
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="All Projects" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="global">Global Files</SelectItem>
+              {projects.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Upload Dropzone */}
-      {canUploadFiles && (
-        <Card>
-          <CardContent className="py-8">
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <div 
-              className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-2">Drag files here or click to browse</p>
-              <p className="text-xs text-muted-foreground">Maximum file size: 50MB</p>
-              <Button variant="outline" className="mt-4">
-                Select Files
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <Select value={projectFilter} onValueChange={setProjectFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by project" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Projects</SelectItem>
-            <SelectItem value="global">Global Files</SelectItem>
-            {projects.map(p => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
+      {/* Header Row 2: Action Filters + Upload Button */}
+      <div className="flex flex-wrap items-center gap-2">
         <Button 
           variant={showFlagged ? 'default' : 'outline'} 
           size="sm"
           onClick={() => setShowFlagged(!showFlagged)}
-          className="gap-1"
+          className="gap-2"
         >
           <Flag className="h-4 w-4" />
           Flagged ({flaggedCount})
@@ -518,85 +590,147 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
             variant={showMyUploads ? 'default' : 'outline'} 
             size="sm"
             onClick={() => setShowMyUploads(!showMyUploads)}
-            className="gap-1"
+            className="gap-2"
           >
             <User className="h-4 w-4" />
             My Uploads ({myUploadsCount})
           </Button>
         )}
+
+        {(isTeam || isAdmin) && (
+          <Button 
+            variant={showFavorites ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setShowFavorites(!showFavorites)}
+            className="gap-2"
+          >
+            <Star className="h-4 w-4" />
+            Favorites ({favoritesCount})
+          </Button>
+        )}
+
+        <div className="flex-1" />
+
+        {canUploadFiles && (
+          <Button onClick={() => setShowUploadModal(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload File
+          </Button>
+        )}
       </div>
 
-      {/* Category Tabs */}
-      <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-          <TabsTrigger value="all">All ({files.length})</TabsTrigger>
-          {Object.entries(categoryConfig).slice(0, 4).map(([key, config]) => {
-            const Icon = config.icon;
-            return (
-              <TabsTrigger key={key} value={key} className="gap-1">
-                <Icon className="h-4 w-4" />
-                {categoryCounts[key as keyof typeof categoryCounts] || 0}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+      {/* Category Pills Row */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={selectedCategories.length === 0 ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSelectedCategories([])}
+          className="h-9"
+        >
+          All
+          <Badge variant="secondary" className="ml-2">
+            {files.length}
+          </Badge>
+        </Button>
 
-        <TabsContent value={activeCategory} className="mt-6">
-          {filteredFiles.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No files in this category</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredFiles.map(file => (
-                <FileCard
-                  key={file.id}
-                  file={file}
-                  flags={getFileFlagsById(file.id)}
-                  projectName={getProjectName(file.project_id)}
-                  userRole={userRole}
-                  currentUserId={user?.id}
-                  canManage={canManageFiles}
-                  onEdit={() => handleEdit(file)}
-                  onDelete={() => handleDelete(file.id)}
-                  onFlag={() => handleFlagFile(file)}
-                  onResolveFlag={(flag) => {
-                    const fullFlag = flags.find(f => f.id === flag.id);
-                    if (fullFlag) {
-                      setResolvingFlag({
-                        id: fullFlag.id,
-                        flag_message: fullFlag.flag_message,
-                        flagged_by_role: fullFlag.flagged_by_role,
-                        flagged_for: fullFlag.flagged_for,
-                        created_at: fullFlag.created_at,
-                        resolved: fullFlag.resolved,
-                        resolved_by: fullFlag.resolved_by || undefined,
-                        resolved_message: fullFlag.resolved_message || undefined,
-                        resolved_at: fullFlag.resolved_at || undefined,
-                      });
-                      setResolvingFileName(file.title || file.name);
-                      setShowResolveModal(true);
-                    }
-                  }}
-                  onTogglePinned={() => handleTogglePinned(file)}
-                  onToggleFavorite={() => handleToggleFavorite(file)}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        {categories.map((cat) => {
+          const Icon = cat.icon;
+          const isSelected = selectedCategories.includes(cat.value);
+          const count = getCategoryCount(cat.value);
 
-      {/* Upload Modal */}
-      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+          return (
+            <Button
+              key={cat.value}
+              variant={isSelected ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => toggleCategory(cat.value)}
+              className="h-9 gap-2"
+            >
+              <Icon className="h-4 w-4" />
+              {cat.label}
+              <Badge variant="secondary" className="ml-1">
+                {count}
+              </Badge>
+            </Button>
+          );
+        })}
+      </div>
+
+      {/* File Grid or Empty State */}
+      {filteredFiles.length === 0 ? (
+        <Card className="p-12 text-center">
+          <CardContent className="p-0">
+            <FolderOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h4 className="text-lg font-medium mb-2">No files yet</h4>
+            <p className="text-muted-foreground mb-4">
+              {files.length === 0 
+                ? 'Upload your first file to get started' 
+                : 'No files match your current filters'}
+            </p>
+            {canUploadFiles && files.length === 0 && (
+              <Button onClick={() => setShowUploadModal(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload File
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredFiles.map(file => (
+            <FileCard
+              key={file.id}
+              file={file}
+              flags={getFileFlagsById(file.id)}
+              projectName={getProjectName(file.project_id)}
+              userRole={userRole}
+              currentUserId={user?.id}
+              canManage={canManageFiles}
+              onEdit={() => handleEdit(file)}
+              onDelete={() => handleDelete(file.id)}
+              onFlag={() => handleFlagFile(file)}
+              onResolveFlag={(flag) => {
+                const fullFlag = flags.find(f => f.id === flag.id);
+                if (fullFlag) {
+                  setResolvingFlag({
+                    id: fullFlag.id,
+                    flag_message: fullFlag.flag_message,
+                    flagged_by_role: fullFlag.flagged_by_role,
+                    flagged_for: fullFlag.flagged_for,
+                    created_at: fullFlag.created_at,
+                    resolved: fullFlag.resolved,
+                    resolved_by: fullFlag.resolved_by || undefined,
+                    resolved_message: fullFlag.resolved_message || undefined,
+                    resolved_at: fullFlag.resolved_at || undefined,
+                  });
+                  setResolvingFileName(file.title || file.name);
+                  setShowResolveModal(true);
+                }
+              }}
+              onTogglePinned={() => handleTogglePinned(file)}
+              onToggleFavorite={() => handleToggleFavorite(file)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
+      {/* Upload Modal with Tabs */}
+      <Dialog open={showUploadModal} onOpenChange={(open) => !open && resetUploadModal()}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Upload File Details</DialogTitle>
+            <DialogTitle>Upload File or Add Link</DialogTitle>
           </DialogHeader>
+          
           <div className="space-y-4">
+            {/* Category Selection */}
             <div className="space-y-2">
               <Label>Category*</Label>
               <Select 
@@ -607,77 +741,145 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="documents">Documents</SelectItem>
-                  <SelectItem value="images">Images</SelectItem>
-                  <SelectItem value="testimonials">Testimonials</SelectItem>
-                  <SelectItem value="video">Video</SelectItem>
-                  <SelectItem value="brand">Brand</SelectItem>
-                  <SelectItem value="content">Content</SelectItem>
-                  <SelectItem value="designs">Designs</SelectItem>
-                  <SelectItem value="copy">Copy</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="documents">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Documents
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="images">
+                    <div className="flex items-center gap-2">
+                      <Image className="h-4 w-4" /> Images
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="designs">
+                    <div className="flex items-center gap-2">
+                      <Palette className="h-4 w-4" /> Design Files
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="testimonials">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4" /> Testimonials
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="video">
+                    <div className="flex items-center gap-2">
+                      <Video className="h-4 w-4" /> Video
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Title*</Label>
-              <Input 
-                value={uploadForm.title}
-                onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Enter file title"
-              />
-            </div>
+            {/* Upload Method Tabs */}
+            <Tabs value={uploadMethod} onValueChange={(v) => setUploadMethod(v as 'file' | 'link')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="file">Upload File</TabsTrigger>
+                <TabsTrigger value="link">Add Link</TabsTrigger>
+              </TabsList>
 
-            {uploadForm.category === 'video' && (
-              <div className="space-y-2">
-                <Label>Hosted Video Link*</Label>
-                <Input 
-                  value={uploadForm.video_hosted_link}
-                  onChange={(e) => setUploadForm(prev => ({ ...prev, video_hosted_link: e.target.value }))}
-                  placeholder="https://youtube.com/..."
-                />
-              </div>
+              <TabsContent value="file" className="space-y-4 mt-4">
+                {!selectedFile ? (
+                  <div 
+                    className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground mb-2">Click to select file</p>
+                    <p className="text-xs text-muted-foreground">Max 50MB</p>
+                    <Button variant="outline" size="sm" className="mt-3">
+                      Select File
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
+                    <FileText className="h-8 w-8 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{selectedFile.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8"
+                      onClick={() => setSelectedFile(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="link" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>External Link*</Label>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="https://..."
+                      value={externalLink}
+                      onChange={(e) => setExternalLink(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Paste Google Docs, Sheets, Figma, YouTube, or any URL
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* Title & Project (shown when file selected or link entered) */}
+            {(selectedFile || (uploadMethod === 'link' && externalLink)) && (
+              <>
+                <div className="space-y-2">
+                  <Label>Title*</Label>
+                  <Input 
+                    value={uploadForm.title}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Enter file title"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Project</Label>
+                  <Select 
+                    value={uploadForm.project_id || '__global__'} 
+                    onValueChange={(v) => setUploadForm(prev => ({ ...prev, project_id: v === '__global__' ? '' : v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Global (All Projects)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__global__">Global (All Projects)</SelectItem>
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Description (Optional)</Label>
+                  <Textarea 
+                    value={uploadForm.description}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Add a description..."
+                    rows={3}
+                  />
+                </div>
+              </>
             )}
-
-            <div className="space-y-2">
-              <Label>Assign to Project</Label>
-              <Select 
-                value={uploadForm.project_id || '__global__'} 
-                onValueChange={(v) => setUploadForm(prev => ({ ...prev, project_id: v === '__global__' ? '' : v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Global (All Projects)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__global__">Global (All Projects)</SelectItem>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Description (Optional)</Label>
-              <Textarea 
-                value={uploadForm.description}
-                onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Add a description..."
-                rows={3}
-              />
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowUploadModal(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleUpload} disabled={uploading}>
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Upload File
-              </Button>
-            </div>
           </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={resetUploadModal}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpload} disabled={uploading}>
+              {uploading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {uploadMethod === 'link' ? 'Add Link' : 'Upload File'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -700,11 +902,11 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
                 <SelectContent>
                   <SelectItem value="documents">Documents</SelectItem>
                   <SelectItem value="images">Images</SelectItem>
+                  <SelectItem value="designs">Design Files</SelectItem>
                   <SelectItem value="testimonials">Testimonials</SelectItem>
                   <SelectItem value="video">Video</SelectItem>
                   <SelectItem value="brand">Brand</SelectItem>
                   <SelectItem value="content">Content</SelectItem>
-                  <SelectItem value="designs">Designs</SelectItem>
                   <SelectItem value="copy">Copy</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
@@ -755,16 +957,15 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
                 rows={3}
               />
             </div>
-
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowEditModal(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveEdit}>
-                Save Changes
-              </Button>
-            </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
