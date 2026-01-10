@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CompanyInfoTab } from '@/components/client/CompanyInfoTab';
 import { ClientNotesTab } from '@/components/client/ClientNotesTab';
+import { FileManagerTab } from '@/components/client/FileManagerTab';
+import { HourTracker } from '@/components/client/HourTracker';
 import { 
   ArrowLeft, 
   FolderKanban, 
@@ -34,6 +37,7 @@ interface Company {
   company_website: string | null;
   hourly_rate: number | null;
   payment_schedule: string | null;
+  poc_name: string | null;
 }
 
 interface Project {
@@ -64,6 +68,7 @@ const statusLabels: Record<string, string> = {
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const { isTeam, isAdmin } = useAuth();
+  const { canEditCompanyInfo } = usePermissions();
   const [company, setCompany] = useState<Company | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,20 +202,14 @@ export default function ClientDetail() {
           {company.retainer_type === 'hourly' && (
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Hours Used</CardDescription>
-                <CardTitle className="text-3xl">
-                  {company.hours_used || 0}/{company.hours_allocated || 0}
-                </CardTitle>
+                <CardDescription>Hours Tracking</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary rounded-full transition-all"
-                    style={{ 
-                      width: `${Math.min(((company.hours_used || 0) / (company.hours_allocated || 1)) * 100, 100)}%` 
-                    }}
-                  />
-                </div>
+                <HourTracker 
+                  hoursUsed={company.hours_used || 0}
+                  monthlyHours={company.hours_allocated || 0}
+                  showWarning={false}
+                />
               </CardContent>
             </Card>
           )}
@@ -315,12 +314,7 @@ export default function ClientDetail() {
           </TabsContent>
 
           <TabsContent value="files">
-            <Card>
-              <CardContent className="py-12 text-center">
-                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">File library coming soon.</p>
-              </CardContent>
-            </Card>
+            <FileManagerTab companyId={company.id} projects={projects} />
           </TabsContent>
         </Tabs>
       </div>

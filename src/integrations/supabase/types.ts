@@ -71,6 +71,7 @@ export type Database = {
           max_concurrent_projects: number | null
           name: string
           payment_schedule: string | null
+          poc_name: string | null
           retainer_type: Database["public"]["Enums"]["retainer_type"]
           updated_at: string
         }
@@ -88,6 +89,7 @@ export type Database = {
           max_concurrent_projects?: number | null
           name: string
           payment_schedule?: string | null
+          poc_name?: string | null
           retainer_type?: Database["public"]["Enums"]["retainer_type"]
           updated_at?: string
         }
@@ -105,6 +107,7 @@ export type Database = {
           max_concurrent_projects?: number | null
           name?: string
           payment_schedule?: string | null
+          poc_name?: string | null
           retainer_type?: Database["public"]["Enums"]["retainer_type"]
           updated_at?: string
         }
@@ -115,40 +118,52 @@ export type Database = {
           category: Database["public"]["Enums"]["file_category"]
           company_id: string
           created_at: string
+          description: string | null
           file_size: number | null
           file_url: string
           id: string
           mime_type: string | null
           name: string
           project_id: string | null
+          title: string | null
           update_id: string | null
+          updated_at: string | null
           uploaded_by: string | null
+          video_hosted_link: string | null
         }
         Insert: {
           category?: Database["public"]["Enums"]["file_category"]
           company_id: string
           created_at?: string
+          description?: string | null
           file_size?: number | null
           file_url: string
           id?: string
           mime_type?: string | null
           name: string
           project_id?: string | null
+          title?: string | null
           update_id?: string | null
+          updated_at?: string | null
           uploaded_by?: string | null
+          video_hosted_link?: string | null
         }
         Update: {
           category?: Database["public"]["Enums"]["file_category"]
           company_id?: string
           created_at?: string
+          description?: string | null
           file_size?: number | null
           file_url?: string
           id?: string
           mime_type?: string | null
           name?: string
           project_id?: string | null
+          title?: string | null
           update_id?: string | null
+          updated_at?: string | null
           uploaded_by?: string | null
+          video_hosted_link?: string | null
         }
         Relationships: [
           {
@@ -342,7 +357,16 @@ export type Database = {
     }
     Enums: {
       app_role: "client" | "team" | "admin"
-      file_category: "brand" | "content" | "designs" | "copy" | "other"
+      file_category:
+        | "documents"
+        | "images"
+        | "testimonials"
+        | "video"
+        | "brand"
+        | "content"
+        | "designs"
+        | "copy"
+        | "other"
       project_status:
         | "queued"
         | "in_progress"
@@ -479,7 +503,17 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["client", "team", "admin"],
-      file_category: ["brand", "content", "designs", "copy", "other"],
+      file_category: [
+        "documents",
+        "images",
+        "testimonials",
+        "video",
+        "brand",
+        "content",
+        "designs",
+        "copy",
+        "other",
+      ],
       project_status: [
         "queued",
         "in_progress",
