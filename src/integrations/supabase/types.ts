@@ -14,40 +14,97 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_notes: {
+        Row: {
+          category: string
+          company_id: string
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+        }
+        Insert: {
+          category: string
+          company_id: string
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_notes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           billing_email: string | null
+          company_website: string | null
+          contact_email: string | null
           created_at: string
+          hourly_rate: number | null
           hours_allocated: number | null
           hours_used: number | null
           id: string
+          invoicing_email: string | null
           logo_url: string | null
           max_concurrent_projects: number | null
           name: string
+          payment_schedule: string | null
           retainer_type: Database["public"]["Enums"]["retainer_type"]
           updated_at: string
         }
         Insert: {
           billing_email?: string | null
+          company_website?: string | null
+          contact_email?: string | null
           created_at?: string
+          hourly_rate?: number | null
           hours_allocated?: number | null
           hours_used?: number | null
           id?: string
+          invoicing_email?: string | null
           logo_url?: string | null
           max_concurrent_projects?: number | null
           name: string
+          payment_schedule?: string | null
           retainer_type?: Database["public"]["Enums"]["retainer_type"]
           updated_at?: string
         }
         Update: {
           billing_email?: string | null
+          company_website?: string | null
+          contact_email?: string | null
           created_at?: string
+          hourly_rate?: number | null
           hours_allocated?: number | null
           hours_used?: number | null
           id?: string
+          invoicing_email?: string | null
           logo_url?: string | null
           max_concurrent_projects?: number | null
           name?: string
+          payment_schedule?: string | null
           retainer_type?: Database["public"]["Enums"]["retainer_type"]
           updated_at?: string
         }

@@ -8,13 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { CompanyInfoTab } from '@/components/client/CompanyInfoTab';
+import { ClientNotesTab } from '@/components/client/ClientNotesTab';
 import { 
   ArrowLeft, 
-  Clock, 
   FolderKanban, 
   FileText, 
   Settings,
-  Plus
+  Plus,
+  Building2,
+  StickyNote
 } from 'lucide-react';
 
 interface Company {
@@ -26,6 +29,11 @@ interface Company {
   hours_used: number | null;
   max_concurrent_projects: number | null;
   billing_email: string | null;
+  contact_email: string | null;
+  invoicing_email: string | null;
+  company_website: string | null;
+  hourly_rate: number | null;
+  payment_schedule: string | null;
 }
 
 interface Project {
@@ -215,6 +223,14 @@ export default function ClientDetail() {
               <FolderKanban className="h-4 w-4" />
               Projects ({projects.length})
             </TabsTrigger>
+            <TabsTrigger value="company-info" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              Company Info
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="gap-2">
+              <StickyNote className="h-4 w-4" />
+              Notes
+            </TabsTrigger>
             <TabsTrigger value="files" className="gap-2">
               <FileText className="h-4 w-4" />
               Files
@@ -288,6 +304,14 @@ export default function ClientDetail() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="company-info">
+            <CompanyInfoTab company={company} onUpdate={fetchCompanyData} />
+          </TabsContent>
+
+          <TabsContent value="notes">
+            <ClientNotesTab companyId={company.id} />
           </TabsContent>
 
           <TabsContent value="files">
