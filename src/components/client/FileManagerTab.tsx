@@ -15,20 +15,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileCard } from '@/components/files/FileCard';
 import { FlagModal } from '@/components/files/FlagModal';
 import { FlagResolveModal } from '@/components/files/FlagResolveModal';
-import { 
-  Upload, 
-  FileText, 
-  Image, 
-  Video, 
+import {
+  Upload,
+  FileText,
+  Image,
+  Video,
   Star,
   Flag,
-  User,
   Loader2,
   FolderOpen,
-  Search,
   Palette,
   X,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Plus
 } from 'lucide-react';
 
 type FileCategory = 'documents' | 'images' | 'testimonials' | 'video' | 'brand' | 'content' | 'designs' | 'copy' | 'other';
@@ -104,11 +103,9 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
+  // Filters - REMOVED: searchQuery and showMyUploads
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [showMyUploads, setShowMyUploads] = useState(false);
   const [showFlagged, setShowFlagged] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
 
@@ -487,14 +484,8 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     return files.filter(f => f.category === category).length;
   };
 
-  // Filter files
+  // Filter files - REMOVED: searchQuery and myUploads filters
   const filteredFiles = files.filter(f => {
-    // Search filter
-    const searchMatch = !searchQuery || 
-      (f.title?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (f.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (f.description?.toLowerCase().includes(searchQuery.toLowerCase()));
-    
     // Category filter (multi-select: if none selected, show all)
     const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(f.category);
     
@@ -502,9 +493,6 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     const projectMatch = projectFilter === 'all' || 
       (projectFilter === 'global' && !f.project_id) ||
       f.project_id === projectFilter;
-    
-    // My uploads filter
-    const myUploadsMatch = !showMyUploads || f.uploaded_by === user?.id;
     
     // Flagged filter
     const flaggedMatch = !showFlagged || flags.some(flag => 
@@ -514,14 +502,13 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     // Favorites filter
     const favoritesMatch = !showFavorites || f.is_favorite;
     
-    return searchMatch && categoryMatch && projectMatch && myUploadsMatch && flaggedMatch && favoritesMatch;
+    return categoryMatch && projectMatch && flaggedMatch && favoritesMatch;
   });
 
   // Counts
   const flaggedCount = files.filter(f => 
     flags.some(flag => flag.file_id === f.id && !flag.resolved)
   ).length;
-  const myUploadsCount = files.filter(f => f.uploaded_by === user?.id).length;
   const favoritesCount = files.filter(f => f.is_favorite).length;
 
   if (loading) {
@@ -533,127 +520,120 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-0">
       {/* Title Section */}
-      <div>
+      <div className="mb-4">
         <h3 className="text-lg font-semibold">All Project Files</h3>
         <p className="text-sm text-muted-foreground">
           All files related to this client, including uploads and team deliverables.
         </p>
       </div>
 
-      {/* Header Row 1: Search + Project Filter */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        {/* Search Bar */}
-        <div className="relative flex-1 max-w-md w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search files..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Project Filter with Label */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">Project:</span>
-          <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="All Projects" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Projects</SelectItem>
-              <SelectItem value="global">Global Files</SelectItem>
-              {projects.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Header Row 2: Action Filters + Upload Button */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button 
-          variant={showFlagged ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => setShowFlagged(!showFlagged)}
-          className="gap-2"
-        >
-          <Flag className="h-4 w-4" />
-          Flagged ({flaggedCount})
-        </Button>
-
-        {isClient && (
+      {/* ACTION BAR - Muted background, compact, secondary/outline buttons */}
+      <div className="bg-muted/50 border-b py-3 px-4 -mx-4 mb-0">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Flagged Filter */}
           <Button 
-            variant={showMyUploads ? 'default' : 'outline'} 
+            variant={showFlagged ? 'secondary' : 'outline'} 
             size="sm"
-            onClick={() => setShowMyUploads(!showMyUploads)}
-            className="gap-2"
+            onClick={() => setShowFlagged(!showFlagged)}
+            className="h-8 gap-2"
           >
-            <User className="h-4 w-4" />
-            My Uploads ({myUploadsCount})
-          </Button>
-        )}
-
-        {(isTeam || isAdmin) && (
-          <Button 
-            variant={showFavorites ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => setShowFavorites(!showFavorites)}
-            className="gap-2"
-          >
-            <Star className="h-4 w-4" />
-            Favorites ({favoritesCount})
-          </Button>
-        )}
-
-        <div className="flex-1" />
-
-        {canUploadFiles && (
-          <Button onClick={() => setShowUploadModal(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload File
-          </Button>
-        )}
-      </div>
-
-      {/* Category Pills Row */}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={selectedCategories.length === 0 ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSelectedCategories([])}
-          className="h-9"
-        >
-          All
-          <Badge variant="secondary" className="ml-2">
-            {files.length}
-          </Badge>
-        </Button>
-
-        {categories.map((cat) => {
-          const Icon = cat.icon;
-          const isSelected = selectedCategories.includes(cat.value);
-          const count = getCategoryCount(cat.value);
-
-          return (
-            <Button
-              key={cat.value}
-              variant={isSelected ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => toggleCategory(cat.value)}
-              className="h-9 gap-2"
-            >
-              <Icon className="h-4 w-4" />
-              {cat.label}
-              <Badge variant="secondary" className="ml-1">
-                {count}
+            <Flag className="h-4 w-4" />
+            Flagged
+            {flaggedCount > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                {flaggedCount}
               </Badge>
+            )}
+          </Button>
+
+          {/* Favorites Filter (team/admin only) */}
+          {(isTeam || isAdmin) && (
+            <Button 
+              variant={showFavorites ? 'secondary' : 'outline'} 
+              size="sm"
+              onClick={() => setShowFavorites(!showFavorites)}
+              className="h-8 gap-2"
+            >
+              <Star className="h-4 w-4" />
+              Favorites
+              {favoritesCount > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                  {favoritesCount}
+                </Badge>
+              )}
             </Button>
-          );
-        })}
+          )}
+
+          {/* Project Filter with Label */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Project:</span>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-40 h-8">
+                <SelectValue placeholder="All Projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                <SelectItem value="global">Global Files</SelectItem>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex-1" />
+
+          {/* Add File Button - Changed from "Upload File" */}
+          {canUploadFiles && (
+            <Button size="sm" className="h-8" onClick={() => setShowUploadModal(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add File
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* CATEGORY PILLS - Prominent, full-width, default button styling */}
+      <div className="py-4 px-4 -mx-4 bg-background">
+        <div className="flex flex-wrap gap-2">
+          {/* All Button */}
+          <Button
+            variant={selectedCategories.length === 0 ? 'default' : 'outline'}
+            size="default"
+            onClick={() => setSelectedCategories([])}
+            className="h-10"
+          >
+            All
+            <Badge variant="secondary" className="ml-2">
+              {files.length}
+            </Badge>
+          </Button>
+
+          {/* Category Buttons */}
+          {categories.map((cat) => {
+            const Icon = cat.icon;
+            const isSelected = selectedCategories.includes(cat.value);
+            const count = getCategoryCount(cat.value);
+
+            return (
+              <Button
+                key={cat.value}
+                variant={isSelected ? 'default' : 'outline'}
+                size="default"
+                onClick={() => toggleCategory(cat.value)}
+                className="h-10 gap-2"
+              >
+                <Icon className="h-4 w-4" />
+                {cat.label}
+                <Badge variant="secondary" className="ml-1">
+                  {count}
+                </Badge>
+              </Button>
+            );
+          })}
+        </div>
       </div>
 
       {/* File Grid or Empty State */}
@@ -664,19 +644,19 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
             <h4 className="text-lg font-medium mb-2">No files yet</h4>
             <p className="text-muted-foreground mb-4">
               {files.length === 0 
-                ? 'Upload your first file to get started' 
+                ? 'Add your first file to get started' 
                 : 'No files match your current filters'}
             </p>
             {canUploadFiles && files.length === 0 && (
               <Button onClick={() => setShowUploadModal(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload File
+                <Plus className="h-4 w-4 mr-2" />
+                Add File
               </Button>
             )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-2">
           {filteredFiles.map(file => (
             <FileCard
               key={file.id}
@@ -722,11 +702,11 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
         onChange={handleFileSelect}
       />
 
-      {/* Upload Modal with Tabs */}
+      {/* Add File Modal - Changed title from "Upload File or Add Link" to "Add New File" */}
       <Dialog open={showUploadModal} onOpenChange={(open) => !open && resetUploadModal()}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Upload File or Add Link</DialogTitle>
+            <DialogTitle>Add New File</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
@@ -770,7 +750,7 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
               </Select>
             </div>
 
-            {/* Upload Method Tabs */}
+            {/* Upload Method Tabs - Keep tab labels as "Upload File" and "Add Link" */}
             <Tabs value={uploadMethod} onValueChange={(v) => setUploadMethod(v as 'file' | 'link')}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="file">Upload File</TabsTrigger>
@@ -976,6 +956,7 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
         fileName={flaggingFile?.title || flaggingFile?.name || ''}
         onSubmit={handleCreateFlag}
         canFlagForClient={!isClient}
+        isClient={isClient}
       />
 
       {/* Resolve Flag Modal */}
