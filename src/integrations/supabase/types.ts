@@ -113,15 +113,69 @@ export type Database = {
         }
         Relationships: []
       }
+      file_flags: {
+        Row: {
+          created_at: string
+          file_id: string
+          flag_message: string
+          flagged_by: string
+          flagged_by_role: string
+          flagged_for: string
+          id: string
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_message: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_id: string
+          flag_message: string
+          flagged_by: string
+          flagged_by_role: string
+          flagged_for: string
+          id?: string
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_message?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_id?: string
+          flag_message?: string
+          flagged_by?: string
+          flagged_by_role?: string
+          flagged_for?: string
+          id?: string
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_flags_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       files: {
         Row: {
           category: Database["public"]["Enums"]["file_category"]
           company_id: string
           created_at: string
           description: string | null
+          external_platform: string | null
           file_size: number | null
           file_url: string
           id: string
+          is_external_link: boolean | null
+          is_favorite: boolean | null
+          is_pinned_to_dashboard: boolean | null
           mime_type: string | null
           name: string
           project_id: string | null
@@ -136,9 +190,13 @@ export type Database = {
           company_id: string
           created_at?: string
           description?: string | null
+          external_platform?: string | null
           file_size?: number | null
           file_url: string
           id?: string
+          is_external_link?: boolean | null
+          is_favorite?: boolean | null
+          is_pinned_to_dashboard?: boolean | null
           mime_type?: string | null
           name: string
           project_id?: string | null
@@ -153,9 +211,13 @@ export type Database = {
           company_id?: string
           created_at?: string
           description?: string | null
+          external_platform?: string | null
           file_size?: number | null
           file_url?: string
           id?: string
+          is_external_link?: boolean | null
+          is_favorite?: boolean | null
+          is_pinned_to_dashboard?: boolean | null
           mime_type?: string | null
           name?: string
           project_id?: string | null
@@ -185,6 +247,54 @@ export type Database = {
             columns: ["update_id"]
             isOneToOne: false
             referencedRelation: "updates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          file_id: string | null
+          flag_id: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_id?: string | null
+          flag_id?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_id?: string | null
+          flag_id?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "file_flags"
             referencedColumns: ["id"]
           },
         ]

@@ -11,25 +11,23 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FileCard } from '@/components/files/FileCard';
+import { FlagModal } from '@/components/files/FlagModal';
+import { FlagResolveModal } from '@/components/files/FlagResolveModal';
 import { 
   Upload, 
   FileText, 
   Image, 
   Video, 
   Star,
-  MoreVertical,
-  Edit,
-  Download,
-  Trash,
-  ExternalLink,
+  Flag,
+  User,
   Loader2,
   FolderOpen
 } from 'lucide-react';
-import { format } from 'date-fns';
 
-type FileCategory = 'documents' | 'images' | 'testimonials' | 'video';
+type FileCategory = 'documents' | 'images' | 'testimonials' | 'video' | 'brand' | 'content' | 'designs' | 'copy' | 'other';
 
 interface FileRecord {
   id: string;
@@ -43,6 +41,25 @@ interface FileRecord {
   project_id: string | null;
   video_hosted_link: string | null;
   created_at: string;
+  is_pinned_to_dashboard?: boolean;
+  is_favorite?: boolean;
+  uploaded_by?: string;
+}
+
+interface FileFlag {
+  id: string;
+  file_id: string;
+  flagged_by: string;
+  flagged_by_role: string;
+  flagged_for: string;
+  flag_message: string;
+  created_at: string;
+  resolved: boolean;
+  resolved_by: string | null;
+  resolved_message: string | null;
+  resolved_at: string | null;
+  flagged_by_name?: string;
+  resolved_by_name?: string;
 }
 
 interface Project {
@@ -60,26 +77,27 @@ const categoryConfig = {
   images: { icon: Image, label: 'Images', color: 'text-green-500' },
   testimonials: { icon: Star, label: 'Testimonials', color: 'text-yellow-500' },
   video: { icon: Video, label: 'Videos', color: 'text-purple-500' },
-};
-
-const formatFileSize = (bytes: number | null) => {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  brand: { icon: FileText, label: 'Brand', color: 'text-pink-500' },
+  content: { icon: FileText, label: 'Content', color: 'text-cyan-500' },
+  designs: { icon: Image, label: 'Designs', color: 'text-orange-500' },
+  copy: { icon: FileText, label: 'Copy', color: 'text-indigo-500' },
+  other: { icon: FileText, label: 'Other', color: 'text-gray-500' },
 };
 
 export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
-  const { user } = useAuth();
+  const { user, isClient, isTeam, isAdmin } = useAuth();
   const { canManageFiles, canUploadFiles } = usePermissions();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [files, setFiles] = useState<FileRecord[]>([]);
+  const [flags, setFlags] = useState<FileFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [showMyUploads, setShowMyUploads] = useState(false);
+  const [showFlagged, setShowFlagged] = useState(false);
 
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -103,8 +121,30 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     video_hosted_link: '',
   });
 
+  // Flag modal state
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [flaggingFile, setFlaggingFile] = useState<FileRecord | null>(null);
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [resolvingFlag, setResolvingFlag] = useState<{
+    id: string;
+    flag_message: string;
+    flagged_by_role: string;
+    flagged_for: string;
+    created_at: string;
+    resolved: boolean;
+    resolved_by?: string;
+    resolved_message?: string;
+    resolved_at?: string;
+    flagged_by_name?: string;
+    resolved_by_name?: string;
+  } | null>(null);
+  const [resolvingFileName, setResolvingFileName] = useState('');
+
+  const userRole = isAdmin ? 'admin' : isTeam ? 'team' : 'client';
+
   useEffect(() => {
     fetchFiles();
+    fetchFlags();
   }, [companyId]);
 
   const fetchFiles = async () => {
@@ -121,6 +161,31 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
       console.error('Error fetching files:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFlags = async () => {
+    try {
+      // Get all file IDs for this company first
+      const { data: companyFiles } = await supabase
+        .from('files')
+        .select('id')
+        .eq('company_id', companyId);
+
+      if (!companyFiles?.length) return;
+
+      const fileIds = companyFiles.map(f => f.id);
+      
+      const { data, error } = await supabase
+        .from('file_flags')
+        .select('*')
+        .in('file_id', fileIds)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setFlags(data || []);
+    } catch (error) {
+      console.error('Error fetching flags:', error);
     }
   };
 
@@ -252,10 +317,103 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     }
   };
 
+  const handleFlagFile = (file: FileRecord) => {
+    setFlaggingFile(file);
+    setShowFlagModal(true);
+  };
+
+  const handleCreateFlag = async (flaggedFor: 'team' | 'client', message: string) => {
+    if (!flaggingFile) return;
+
+    try {
+      const { error } = await supabase
+        .from('file_flags')
+        .insert({
+          file_id: flaggingFile.id,
+          flagged_by: user?.id,
+          flagged_by_role: userRole,
+          flagged_for: flaggedFor,
+          flag_message: message,
+        });
+
+      if (error) throw error;
+
+      toast({ title: 'File flagged successfully!' });
+      fetchFlags();
+    } catch (error) {
+      toast({ title: 'Failed to flag file', variant: 'destructive' });
+    }
+  };
+
+  const handleResolveFlag = async (flagId: string, message: string) => {
+    try {
+      const { error } = await supabase
+        .from('file_flags')
+        .update({
+          resolved: true,
+          resolved_by: user?.id,
+          resolved_message: message,
+          resolved_at: new Date().toISOString(),
+        })
+        .eq('id', flagId);
+
+      if (error) throw error;
+
+      toast({ title: 'Flag resolved!' });
+      fetchFlags();
+    } catch (error) {
+      toast({ title: 'Failed to resolve flag', variant: 'destructive' });
+    }
+  };
+
+  const handleTogglePinned = async (file: FileRecord) => {
+    try {
+      const { error } = await supabase
+        .from('files')
+        .update({ is_pinned_to_dashboard: !file.is_pinned_to_dashboard })
+        .eq('id', file.id);
+
+      if (error) throw error;
+
+      toast({ 
+        title: file.is_pinned_to_dashboard 
+          ? 'Unpinned from dashboard' 
+          : 'Pinned to client dashboard' 
+      });
+      fetchFiles();
+    } catch (error) {
+      toast({ title: 'Failed to update file', variant: 'destructive' });
+    }
+  };
+
+  const handleToggleFavorite = async (file: FileRecord) => {
+    try {
+      const { error } = await supabase
+        .from('files')
+        .update({ is_favorite: !file.is_favorite })
+        .eq('id', file.id);
+
+      if (error) throw error;
+
+      toast({ 
+        title: file.is_favorite 
+          ? 'Removed from favorites' 
+          : 'Added to favorites' 
+      });
+      fetchFiles();
+    } catch (error) {
+      toast({ title: 'Failed to update file', variant: 'destructive' });
+    }
+  };
+
   const getProjectName = (projectId: string | null) => {
     if (!projectId) return 'Global';
     const project = projects.find(p => p.id === projectId);
     return project?.name || 'Unknown Project';
+  };
+
+  const getFileFlagsById = (fileId: string) => {
+    return flags.filter(f => f.file_id === fileId);
   };
 
   // Filter files
@@ -264,7 +422,11 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     const projectMatch = projectFilter === 'all' || 
       (projectFilter === 'global' && !f.project_id) ||
       f.project_id === projectFilter;
-    return categoryMatch && projectMatch;
+    const myUploadsMatch = !showMyUploads || f.uploaded_by === user?.id;
+    const flaggedMatch = !showFlagged || flags.some(flag => 
+      flag.file_id === f.id && !flag.resolved
+    );
+    return categoryMatch && projectMatch && myUploadsMatch && flaggedMatch;
   });
 
   // Count by category
@@ -274,6 +436,12 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
     testimonials: files.filter(f => f.category === 'testimonials').length,
     video: files.filter(f => f.category === 'video').length,
   };
+
+  const flaggedCount = files.filter(f => 
+    flags.some(flag => flag.file_id === f.id && !flag.resolved)
+  ).length;
+
+  const myUploadsCount = files.filter(f => f.uploaded_by === user?.id).length;
 
   if (loading) {
     return (
@@ -285,6 +453,16 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">All Project Files</h3>
+          <p className="text-sm text-muted-foreground">
+            All files related to this client, including uploads and team deliverables.
+          </p>
+        </div>
+      </div>
+
       {/* Upload Dropzone */}
       {canUploadFiles && (
         <Card>
@@ -311,7 +489,7 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-2">
         <Select value={projectFilter} onValueChange={setProjectFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Filter by project" />
@@ -324,18 +502,40 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
             ))}
           </SelectContent>
         </Select>
+
+        <Button 
+          variant={showFlagged ? 'default' : 'outline'} 
+          size="sm"
+          onClick={() => setShowFlagged(!showFlagged)}
+          className="gap-1"
+        >
+          <Flag className="h-4 w-4" />
+          Flagged ({flaggedCount})
+        </Button>
+
+        {isClient && (
+          <Button 
+            variant={showMyUploads ? 'default' : 'outline'} 
+            size="sm"
+            onClick={() => setShowMyUploads(!showMyUploads)}
+            className="gap-1"
+          >
+            <User className="h-4 w-4" />
+            My Uploads ({myUploadsCount})
+          </Button>
+        )}
       </div>
 
       {/* Category Tabs */}
       <Tabs value={activeCategory} onValueChange={setActiveCategory}>
         <TabsList className="grid grid-cols-5 w-full max-w-2xl">
           <TabsTrigger value="all">All ({files.length})</TabsTrigger>
-          {Object.entries(categoryConfig).map(([key, config]) => {
+          {Object.entries(categoryConfig).slice(0, 4).map(([key, config]) => {
             const Icon = config.icon;
             return (
               <TabsTrigger key={key} value={key} className="gap-1">
                 <Icon className="h-4 w-4" />
-                {categoryCounts[key as keyof typeof categoryCounts]}
+                {categoryCounts[key as keyof typeof categoryCounts] || 0}
               </TabsTrigger>
             );
           })}
@@ -351,86 +551,40 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
             </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredFiles.map(file => {
-                const config = categoryConfig[file.category as keyof typeof categoryConfig] || categoryConfig.documents;
-                const Icon = config.icon;
-
-                return (
-                  <Card key={file.id} className="group hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                          <div className={`h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 ${config.color}`}>
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium truncate">{file.title || file.name}</h4>
-                            <p className="text-xs text-muted-foreground truncate">{file.name}</p>
-                          </div>
-                        </div>
-                        
-                        {canManageFiles && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEdit(file)}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <a href={file.file_url} target="_blank" rel="noopener noreferrer">
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download
-                                </a>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDelete(file.id)}
-                                className="text-destructive"
-                              >
-                                <Trash className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-
-                      <div className="mt-3 flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-xs">
-                          {getProjectName(file.project_id)}
-                        </Badge>
-                        {file.file_size && (
-                          <span className="text-xs text-muted-foreground">
-                            {formatFileSize(file.file_size)}
-                          </span>
-                        )}
-                      </div>
-
-                      {file.category === 'video' && file.video_hosted_link && (
-                        <a 
-                          href={file.video_hosted_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Watch Video
-                        </a>
-                      )}
-
-                      {file.category === 'testimonials' && file.description && (
-                        <p className="mt-2 text-sm text-muted-foreground line-clamp-2 italic">
-                          "{file.description}"
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {filteredFiles.map(file => (
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  flags={getFileFlagsById(file.id)}
+                  projectName={getProjectName(file.project_id)}
+                  userRole={userRole}
+                  currentUserId={user?.id}
+                  canManage={canManageFiles}
+                  onEdit={() => handleEdit(file)}
+                  onDelete={() => handleDelete(file.id)}
+                  onFlag={() => handleFlagFile(file)}
+                  onResolveFlag={(flag) => {
+                    const fullFlag = flags.find(f => f.id === flag.id);
+                    if (fullFlag) {
+                      setResolvingFlag({
+                        id: fullFlag.id,
+                        flag_message: fullFlag.flag_message,
+                        flagged_by_role: fullFlag.flagged_by_role,
+                        flagged_for: fullFlag.flagged_for,
+                        created_at: fullFlag.created_at,
+                        resolved: fullFlag.resolved,
+                        resolved_by: fullFlag.resolved_by || undefined,
+                        resolved_message: fullFlag.resolved_message || undefined,
+                        resolved_at: fullFlag.resolved_at || undefined,
+                      });
+                      setResolvingFileName(file.title || file.name);
+                      setShowResolveModal(true);
+                    }
+                  }}
+                  onTogglePinned={() => handleTogglePinned(file)}
+                  onToggleFavorite={() => handleToggleFavorite(file)}
+                />
+              ))}
             </div>
           )}
         </TabsContent>
@@ -457,6 +611,11 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
                   <SelectItem value="images">Images</SelectItem>
                   <SelectItem value="testimonials">Testimonials</SelectItem>
                   <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="brand">Brand</SelectItem>
+                  <SelectItem value="content">Content</SelectItem>
+                  <SelectItem value="designs">Designs</SelectItem>
+                  <SelectItem value="copy">Copy</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -543,6 +702,11 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
                   <SelectItem value="images">Images</SelectItem>
                   <SelectItem value="testimonials">Testimonials</SelectItem>
                   <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="brand">Brand</SelectItem>
+                  <SelectItem value="content">Content</SelectItem>
+                  <SelectItem value="designs">Designs</SelectItem>
+                  <SelectItem value="copy">Copy</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -603,6 +767,24 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Flag Modal */}
+      <FlagModal
+        open={showFlagModal}
+        onOpenChange={setShowFlagModal}
+        fileName={flaggingFile?.title || flaggingFile?.name || ''}
+        onSubmit={handleCreateFlag}
+        canFlagForClient={!isClient}
+      />
+
+      {/* Resolve Flag Modal */}
+      <FlagResolveModal
+        open={showResolveModal}
+        onOpenChange={setShowResolveModal}
+        flag={resolvingFlag}
+        fileName={resolvingFileName}
+        onResolve={handleResolveFlag}
+      />
     </div>
   );
 }
