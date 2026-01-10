@@ -484,14 +484,14 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
             <div className="space-y-2">
               <Label>Assign to Project</Label>
               <Select 
-                value={uploadForm.project_id} 
-                onValueChange={(v) => setUploadForm(prev => ({ ...prev, project_id: v }))}
+                value={uploadForm.project_id || '__global__'} 
+                onValueChange={(v) => setUploadForm(prev => ({ ...prev, project_id: v === '__global__' ? '' : v }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Global (All Projects)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Global (All Projects)</SelectItem>
+                  <SelectItem value="__global__">Global (All Projects)</SelectItem>
                   {projects.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
@@ -568,14 +568,14 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
             <div className="space-y-2">
               <Label>Assign to Project</Label>
               <Select 
-                value={editForm.project_id} 
-                onValueChange={(v) => setEditForm(prev => ({ ...prev, project_id: v }))}
+                value={editForm.project_id || '__global__'} 
+                onValueChange={(v) => setEditForm(prev => ({ ...prev, project_id: v === '__global__' ? '' : v }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Global (All Projects)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Global (All Projects)</SelectItem>
+                  <SelectItem value="__global__">Global (All Projects)</SelectItem>
                   {projects.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
