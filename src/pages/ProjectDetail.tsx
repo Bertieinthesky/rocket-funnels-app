@@ -40,6 +40,8 @@ interface Update {
   hours_logged: number | null;
   created_at: string;
   author_id: string | null;
+  author_name?: string | null;
+  author_email?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -94,7 +96,26 @@ export default function ProjectDetail() {
         .eq('project_id', id)
         .order('created_at', { ascending: false });
       
-      setUpdates(updatesData || []);
+      // Fetch author info for each update
+      const updatesWithAuthors = await Promise.all(
+        (updatesData || []).map(async (update) => {
+          if (update.author_id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', update.author_id)
+              .single();
+            return {
+              ...update,
+              author_name: profile?.full_name,
+              author_email: profile?.email
+            };
+          }
+          return update;
+        })
+      );
+      
+      setUpdates(updatesWithAuthors);
     } catch (error) {
       console.error('Error fetching project:', error);
       toast({
@@ -284,7 +305,7 @@ export default function ProjectDetail() {
                     <div className="absolute left-0 top-0">
                       <Avatar className="h-6 w-6">
                         <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                          {getInitials(update.profiles?.full_name, update.profiles?.email)}
+                          {getInitials(update.author_name, update.author_email)}
                         </AvatarFallback>
                       </Avatar>
                     </div>
@@ -292,7 +313,7 @@ export default function ProjectDetail() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">
-                            {update.profiles?.full_name || 'Team Member'}
+                            {update.author_name || 'Team Member'}
                           </span>
                           {update.is_deliverable && (
                             <Badge className="bg-primary/10 text-primary">Deliverable</Badge>
