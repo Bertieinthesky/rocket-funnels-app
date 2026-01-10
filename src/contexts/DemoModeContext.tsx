@@ -1,5 +1,5 @@
+// Demo Mode Context - allows super admins to preview different role views
 import { createContext, useContext, useState, ReactNode } from 'react';
-
 type DemoView = 'admin' | 'team' | 'client';
 
 interface DemoModeContextType {
