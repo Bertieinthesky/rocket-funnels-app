@@ -23,6 +23,7 @@ interface Company {
   payment_schedule: string | null;
   project_count?: number;
   active_projects?: number;
+  queued_projects?: number;
   action_items_for_us?: number;
   action_items_for_client?: number;
 }
@@ -59,7 +60,13 @@ export default function Clients() {
             .from('projects')
             .select('*', { count: 'exact', head: true })
             .eq('company_id', company.id)
-            .in('status', ['queued', 'in_progress', 'revision', 'review']);
+            .in('status', ['in_progress', 'revision', 'review']);
+
+          const { count: queuedCount } = await supabase
+            .from('projects')
+            .select('*', { count: 'exact', head: true })
+            .eq('company_id', company.id)
+            .eq('status', 'queued');
 
           // Fetch action items for us (team) - files flagged for team
           const { count: actionItemsForUs } = await supabase
@@ -81,6 +88,7 @@ export default function Clients() {
             ...company,
             project_count: totalCount || 0,
             active_projects: activeCount || 0,
+            queued_projects: queuedCount || 0,
             action_items_for_us: actionItemsForUs || 0,
             action_items_for_client: actionItemsForClient || 0,
           };
@@ -206,7 +214,7 @@ export default function Clients() {
                 hours_allocated={company.hours_allocated}
                 hours_used={company.hours_used}
                 active_projects={company.active_projects || 0}
-                project_count={company.project_count || 0}
+                queued_projects={company.queued_projects || 0}
                 action_items_for_us={company.action_items_for_us || 0}
                 action_items_for_client={company.action_items_for_client || 0}
                 payment_schedule={company.payment_schedule}

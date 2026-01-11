@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Clock, FolderKanban, Repeat, Zap, AlertCircle } from 'lucide-react';
+import { Clock, FolderKanban, Repeat, Zap, AlertCircle, Inbox } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,7 @@ interface ClientCardProps {
   hours_allocated: number | null;
   hours_used: number | null;
   active_projects: number;
-  project_count: number;
+  queued_projects: number;
   action_items_for_us?: number;
   action_items_for_client?: number;
   payment_schedule?: string | null;
@@ -80,7 +80,7 @@ export function ClientCard({
   hours_allocated,
   hours_used,
   active_projects,
-  project_count,
+  queued_projects,
   action_items_for_us = 0,
   action_items_for_client = 0,
   payment_schedule,
@@ -137,8 +137,7 @@ export function ClientCard({
 
   const retainerConfig = getRetainerConfig();
   const RetainerIcon = retainerConfig.icon;
-
-  const hasActionItems = action_items_for_us > 0 || action_items_for_client > 0;
+  const totalActionItems = action_items_for_us + action_items_for_client;
 
   return (
     <Link to={`/clients/${id}`}>
@@ -166,22 +165,24 @@ export function ClientCard({
           </div>
 
           {/* Stats Row */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground mb-4">
             <div className="flex items-center gap-1.5">
               <FolderKanban className="h-4 w-4" />
               <span className="font-medium text-foreground">{active_projects}</span>
               <span>active</span>
             </div>
-            {(action_items_for_us > 0 || action_items_for_client > 0) && (
-              <>
-                <span className="text-muted-foreground/40">•</span>
-                <div className="flex items-center gap-1.5">
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
-                  <span className="font-medium text-foreground">{action_items_for_us + action_items_for_client}</span>
-                  <span>action items</span>
-                </div>
-              </>
-            )}
+            <span className="text-muted-foreground/40">•</span>
+            <div className="flex items-center gap-1.5">
+              <Inbox className="h-4 w-4" />
+              <span className="font-medium text-foreground">{queued_projects}</span>
+              <span>queued</span>
+            </div>
+            <span className="text-muted-foreground/40">•</span>
+            <div className="flex items-center gap-1.5">
+              <AlertCircle className={cn("h-4 w-4", totalActionItems > 0 ? "text-amber-500" : "")} />
+              <span className="font-medium text-foreground">{totalActionItems}</span>
+              <span>items</span>
+            </div>
           </div>
 
 
