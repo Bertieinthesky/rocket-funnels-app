@@ -17,10 +17,6 @@ import { FlagResolveModal } from '@/components/files/FlagResolveModal';
 import { 
   Plus,
   FileText, 
-  Image, 
-  Video,
-  Palette,
-  Package,
   Loader2,
   FolderOpen,
   Upload,
@@ -71,14 +67,14 @@ interface Project {
   name: string;
 }
 
-const categoryConfig: { value: FileCategory | 'all'; label: string; icon: React.ElementType }[] = [
-  { value: 'all', label: 'All', icon: Package },
-  { value: 'documents', label: 'Documents', icon: FileText },
-  { value: 'images', label: 'Images', icon: Image },
-  { value: 'designs', label: 'Design Files', icon: Palette },
-  { value: 'testimonials', label: 'Testimonials', icon: Star },
-  { value: 'video', label: 'Video', icon: Video },
-  { value: 'other', label: 'Other', icon: Package },
+const categoryConfig: { value: FileCategory | 'all'; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'documents', label: 'Documents' },
+  { value: 'images', label: 'Images' },
+  { value: 'designs', label: 'Design Files' },
+  { value: 'testimonials', label: 'Testimonials' },
+  { value: 'video', label: 'Video' },
+  { value: 'other', label: 'Other' },
 ];
 
 const detectPlatform = (url: string): string | null => {
@@ -624,7 +620,7 @@ export default function Files() {
 
         {/* Category Pills - Single line */}
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {categoryConfig.map(({ value, label, icon: Icon }) => {
+          {categoryConfig.map(({ value, label }) => {
             const count = getCategoryCount(value);
             const isSelected = selectedCategories.includes(value);
             
@@ -636,7 +632,6 @@ export default function Files() {
                 className="h-9 whitespace-nowrap"
                 onClick={() => toggleCategory(value)}
               >
-                <Icon className="mr-1.5 h-4 w-4" />
                 {label}
                 <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">
                   {count}
