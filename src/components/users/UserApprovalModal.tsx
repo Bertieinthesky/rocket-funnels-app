@@ -92,25 +92,24 @@ export function UserApprovalModal({ open, onOpenChange, user, onApproved }: User
 
       if (profileError) throw profileError;
 
-      // Update user role if changed from default 'client'
-      if (selectedRole !== 'client') {
-        // Delete existing client role
-        await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('role', 'client');
+      // Ensure user has exactly ONE role (prevents accidental multi-role users)
+      // 1) Clear existing roles
+      const { error: deleteRolesError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', user.id);
 
-        // Insert new role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: user.id,
-            role: selectedRole,
-          });
+      if (deleteRolesError) throw deleteRolesError;
 
-        if (roleError) throw roleError;
-      }
+      // 2) Insert selected role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: user.id,
+          role: selectedRole,
+        });
+
+      if (roleError) throw roleError;
 
       toast({
         title: 'User Approved',
