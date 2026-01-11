@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
-import { Clock, FolderKanban, Repeat, Zap } from 'lucide-react';
+import { Clock, FolderKanban, Repeat, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { format, addMonths, startOfMonth } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface ClientCardProps {
   id: string;
@@ -14,7 +15,37 @@ interface ClientCardProps {
   hours_used: number | null;
   active_projects: number;
   project_count: number;
+  action_items_for_us?: number;
+  action_items_for_client?: number;
 }
+
+type HourStatus = 'green' | 'yellow' | 'red';
+
+const getHourStatus = (hoursUsed: number, hoursAllocated: number): HourStatus => {
+  if (hoursAllocated === 0) return 'green';
+  
+  const remaining = hoursAllocated - hoursUsed;
+  const percentageUsed = (hoursUsed / hoursAllocated) * 100;
+
+  // Red: 2 hours or less remaining or over budget
+  if (remaining <= 2) {
+    return 'red';
+  }
+
+  // Yellow: 75% or more used
+  if (percentageUsed >= 75) {
+    return 'yellow';
+  }
+
+  // Green: Safe zone
+  return 'green';
+};
+
+const getNextResetDate = (): string => {
+  const now = new Date();
+  const nextMonth = startOfMonth(addMonths(now, 1));
+  return format(nextMonth, 'MMMM do');
+};
 
 export function ClientCard({
   id,
@@ -25,6 +56,8 @@ export function ClientCard({
   hours_used,
   active_projects,
   project_count,
+  action_items_for_us = 0,
+  action_items_for_client = 0,
 }: ClientCardProps) {
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -35,6 +68,7 @@ export function ClientCard({
     : 0;
 
   const isOverBudget = (hours_used || 0) > (hours_allocated || 0) && hours_allocated && hours_allocated > 0;
+  const hourStatus = getHourStatus(hours_used || 0, hours_allocated || 0);
 
   const getRetainerConfig = () => {
     switch (retainer_type) {
@@ -63,8 +97,22 @@ export function ClientCard({
     }
   };
 
+  const getProgressColorClass = () => {
+    switch (hourStatus) {
+      case 'red':
+        return 'bg-red-500';
+      case 'yellow':
+        return 'bg-yellow-500';
+      case 'green':
+      default:
+        return 'bg-emerald-500';
+    }
+  };
+
   const retainerConfig = getRetainerConfig();
   const RetainerIcon = retainerConfig.icon;
+
+  const hasActionItems = action_items_for_us > 0 || action_items_for_client > 0;
 
   return (
     <Link to={`/clients/${id}`}>
@@ -105,6 +153,29 @@ export function ClientCard({
             </div>
           </div>
 
+          {/* Action Items */}
+          {hasActionItems && (
+            <div className="flex items-center gap-3 text-sm mb-4 p-2 rounded-md bg-muted/50">
+              {action_items_for_us > 0 && (
+                <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span className="font-medium">{action_items_for_us}</span>
+                  <span className="text-muted-foreground">for us</span>
+                </div>
+              )}
+              {action_items_for_us > 0 && action_items_for_client > 0 && (
+                <span className="text-muted-foreground/40">•</span>
+              )}
+              {action_items_for_client > 0 && (
+                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span className="font-medium">{action_items_for_client}</span>
+                  <span className="text-muted-foreground">for client</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Hours Progress - Only for retainer clients */}
           {retainer_type === 'hourly' && hours_allocated && hours_allocated > 0 && (
             <div className="space-y-2 pt-3 border-t">
@@ -113,19 +184,35 @@ export function ClientCard({
                   <Clock className="h-3.5 w-3.5" />
                   <span>Hours Used</span>
                 </div>
-                <span className={`font-medium ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
+                <span className={cn(
+                  'font-medium',
+                  hourStatus === 'red' && 'text-red-600 dark:text-red-400',
+                  hourStatus === 'yellow' && 'text-yellow-600 dark:text-yellow-400',
+                  hourStatus === 'green' && 'text-foreground'
+                )}>
                   {hours_used || 0} / {hours_allocated}h
                 </span>
               </div>
-              <Progress 
-                value={hoursPercentage} 
-                className={`h-2 ${isOverBudget ? '[&>div]:bg-destructive' : hoursPercentage > 80 ? '[&>div]:bg-amber-500' : ''}`}
-              />
-              {isOverBudget && (
-                <p className="text-xs text-destructive font-medium">
-                  Over budget by {((hours_used || 0) - hours_allocated).toFixed(1)}h
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className={cn('h-full rounded-full transition-all duration-500', getProgressColorClass())}
+                  style={{ width: `${hoursPercentage}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                {isOverBudget ? (
+                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                    Over budget by {((hours_used || 0) - hours_allocated).toFixed(1)}h
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {(hours_allocated - (hours_used || 0)).toFixed(1)}h remaining
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Resets {getNextResetDate()}
                 </p>
-              )}
+              </div>
             </div>
           )}
         </CardContent>
