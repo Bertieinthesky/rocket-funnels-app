@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Clock, FolderKanban, Repeat, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { format, addMonths, startOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface ClientCardProps {
@@ -17,6 +17,7 @@ interface ClientCardProps {
   project_count: number;
   action_items_for_us?: number;
   action_items_for_client?: number;
+  payment_schedule?: string | null;
 }
 
 type HourStatus = 'green' | 'yellow' | 'red';
@@ -41,10 +42,34 @@ const getHourStatus = (hoursUsed: number, hoursAllocated: number): HourStatus =>
   return 'green';
 };
 
-const getNextResetDate = (): string => {
+const getNextResetDate = (paymentSchedule: string | null | undefined): string => {
   const now = new Date();
-  const nextMonth = startOfMonth(addMonths(now, 1));
-  return format(nextMonth, 'MMMM do');
+  
+  // Parse the billing day from payment_schedule (e.g., "1st" or "15th")
+  let billingDay = 1; // default to 1st
+  if (paymentSchedule) {
+    const match = paymentSchedule.match(/(\d+)/);
+    if (match) {
+      billingDay = parseInt(match[1], 10);
+    }
+  }
+  
+  // Calculate the next reset date
+  const currentDay = now.getDate();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  let nextResetDate: Date;
+  
+  if (currentDay < billingDay) {
+    // Reset is later this month
+    nextResetDate = new Date(currentYear, currentMonth, billingDay);
+  } else {
+    // Reset is next month
+    nextResetDate = new Date(currentYear, currentMonth + 1, billingDay);
+  }
+  
+  return format(nextResetDate, 'MMMM do');
 };
 
 export function ClientCard({
@@ -58,6 +83,7 @@ export function ClientCard({
   project_count,
   action_items_for_us = 0,
   action_items_for_client = 0,
+  payment_schedule,
 }: ClientCardProps) {
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -210,7 +236,7 @@ export function ClientCard({
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Resets {getNextResetDate()}
+                  Resets {getNextResetDate(payment_schedule)}
                 </p>
               </div>
             </div>

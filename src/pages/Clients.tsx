@@ -20,6 +20,7 @@ interface Company {
   hours_used: number | null;
   max_concurrent_projects: number | null;
   billing_email: string | null;
+  payment_schedule: string | null;
   project_count?: number;
   active_projects?: number;
   action_items_for_us?: number;
@@ -208,6 +209,7 @@ export default function Clients() {
                 project_count={company.project_count || 0}
                 action_items_for_us={company.action_items_for_us || 0}
                 action_items_for_client={company.action_items_for_client || 0}
+                payment_schedule={company.payment_schedule}
               />
             ))}
           </div>
