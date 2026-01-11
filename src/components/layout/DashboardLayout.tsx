@@ -50,8 +50,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { isDemoMode, demoView, toggleDemoMode, setDemoView } = useDemoMode();
   const navigate = useNavigate();
 
-  // Check if user is super admin (has all 3 roles)
-  const isSuperAdmin = isClient && isTeam && isAdmin;
+  // Admins can use demo mode to preview other role views
+  const canUseDemoMode = isAdmin;
 
   // Determine effective role based on demo mode
   const effectiveIsClient = isDemoMode ? demoView === 'client' : isClient;
@@ -153,8 +153,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarContent>
           
           <SidebarFooter className="border-t border-sidebar-border p-4 space-y-4">
-            {/* Demo Mode Toggle - Only for Super Admin */}
-            {isSuperAdmin && (
+            {/* Demo Mode Toggle - Only for Admins */}
+            {canUseDemoMode && (
               <div className="rounded-lg border border-dashed border-primary/50 bg-primary/5 p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
