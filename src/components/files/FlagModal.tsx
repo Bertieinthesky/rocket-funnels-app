@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Flag, Loader2 } from 'lucide-react';
 
 interface FlagModalProps {
@@ -20,21 +19,20 @@ export function FlagModal({
   onOpenChange, 
   fileName, 
   onSubmit, 
-  canFlagForClient = false,
   isClient = false
 }: FlagModalProps) {
-  const [flaggedFor, setFlaggedFor] = useState<'team' | 'client'>('team');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-determine flag target: clients flag for team, team/admin flag for client
+  const flagTarget: 'team' | 'client' = isClient ? 'team' : 'client';
 
   const handleSubmit = async () => {
     if (!reason.trim()) return;
     setSubmitting(true);
     try {
-      // Clients always flag for team
-      await onSubmit(isClient ? 'team' : flaggedFor, reason);
+      await onSubmit(flagTarget, reason);
       setReason('');
-      setFlaggedFor('team');
       onOpenChange(false);
     } finally {
       setSubmitting(false);
@@ -43,7 +41,6 @@ export function FlagModal({
 
   const handleClose = () => {
     setReason('');
-    setFlaggedFor('team');
     onOpenChange(false);
   };
 
@@ -63,33 +60,13 @@ export function FlagModal({
             File: <span className="font-medium text-foreground">{fileName}</span>
           </div>
 
-          {/* Flag target - Team/Admin can choose, Clients only see "Team" */}
-          {!isClient && canFlagForClient ? (
-            <div className="space-y-3">
-              <Label>Flag for:*</Label>
-              <RadioGroup 
-                value={flaggedFor} 
-                onValueChange={(v) => setFlaggedFor(v as 'team' | 'client')}
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="team" id="flag-team" />
-                  <Label htmlFor="flag-team" className="cursor-pointer">Team</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="client" id="flag-client" />
-                  <Label htmlFor="flag-client" className="cursor-pointer">Client</Label>
-                </div>
-              </RadioGroup>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <Label className="text-muted-foreground">Flagging for:</Label>
-              <p className="font-medium">Team</p>
-            </div>
-          )}
+          {/* Flag target - Auto-determined based on role */}
+          <div className="space-y-1">
+            <Label className="text-muted-foreground">Flagging for:</Label>
+            <p className="font-medium">{isClient ? 'Team' : 'Client'}</p>
+          </div>
 
-          {/* Reason - Changed from "Message" */}
+          {/* Reason */}
           <div className="space-y-2">
             <Label>Reason for Flagging*</Label>
             <Textarea
@@ -105,17 +82,17 @@ export function FlagModal({
           <div className="bg-muted/50 p-3 rounded-md">
             <p className="text-sm font-medium mb-1">💡 Examples:</p>
             <ul className="text-xs text-muted-foreground space-y-1">
-              {!isClient ? (
-                <>
-                  <li>• Needs client approval</li>
-                  <li>• Contains error that needs fixing</li>
-                  <li>• Waiting on updated version</li>
-                </>
-              ) : (
+              {isClient ? (
                 <>
                   <li>• Question about this file</li>
                   <li>• This file has an issue</li>
                   <li>• I've uploaded requested materials</li>
+                </>
+              ) : (
+                <>
+                  <li>• Needs client approval</li>
+                  <li>• Please review and provide feedback</li>
+                  <li>• Waiting on updated version</li>
                 </>
               )}
             </ul>
@@ -132,7 +109,7 @@ export function FlagModal({
             variant="destructive"
           >
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Flag File
+            Flag for {isClient ? 'Team' : 'Client'}
           </Button>
         </DialogFooter>
       </DialogContent>

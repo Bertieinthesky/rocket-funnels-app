@@ -623,8 +623,8 @@ export default function Files() {
           </div>
         </div>
 
-        {/* Category Pills */}
-        <div className="flex flex-wrap gap-2">
+        {/* Category Pills - Single line */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {categoryConfig.map(({ value, label, icon: Icon }) => {
             const count = getCategoryCount(value);
             const isSelected = selectedCategories.includes(value);
@@ -633,13 +633,13 @@ export default function Files() {
               <Button
                 key={value}
                 variant={isSelected ? "default" : "outline"}
-                size="lg"
-                className="h-10"
+                size="sm"
+                className="h-9 whitespace-nowrap"
                 onClick={() => toggleCategory(value)}
               >
-                <Icon className="mr-2 h-4 w-4" />
+                <Icon className="mr-1.5 h-4 w-4" />
                 {label}
-                <Badge variant="secondary" className="ml-2">
+                <Badge variant="secondary" className="ml-1.5 h-5 px-1.5">
                   {count}
                 </Badge>
               </Button>
