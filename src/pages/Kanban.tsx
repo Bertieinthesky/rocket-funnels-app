@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,7 +6,9 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertCircle, Loader2, Filter } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -17,6 +19,11 @@ interface Project {
   blocked_reason: string | null;
   company_id: string;
   company_name?: string;
+}
+
+interface Company {
+  id: string;
+  name: string;
 }
 
 const statusColumns = [
@@ -35,10 +42,18 @@ const typeColors: Record<string, string> = {
   other: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
 };
 
+const projectTypes = ['design', 'development', 'content', 'strategy', 'other'];
+
 export default function Kanban() {
   const { isTeam, isAdmin } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter state
+  const [selectedClient, setSelectedClient] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [showBlocked, setShowBlocked] = useState<boolean>(false);
 
   useEffect(() => {
     fetchProjects();
@@ -68,12 +83,40 @@ export default function Kanban() {
       }));
 
       setProjects(projectsWithCompany);
+      setCompanies(companiesData || []);
     } catch (error) {
       console.error('Error fetching projects:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Filtered projects based on selected filters
+  const filteredProjects = useMemo(() => {
+    let result = projects;
+
+    if (selectedClient !== 'all') {
+      result = result.filter(p => p.company_id === selectedClient);
+    }
+
+    if (selectedType !== 'all') {
+      result = result.filter(p => p.project_type === selectedType);
+    }
+
+    if (showBlocked) {
+      result = result.filter(p => p.is_blocked);
+    }
+
+    return result;
+  }, [projects, selectedClient, selectedType, showBlocked]);
+
+  const clearFilters = () => {
+    setSelectedClient('all');
+    setSelectedType('all');
+    setShowBlocked(false);
+  };
+
+  const hasActiveFilters = selectedClient !== 'all' || selectedType !== 'all' || showBlocked;
 
   if (!isTeam && !isAdmin) {
     return (
@@ -98,14 +141,82 @@ export default function Kanban() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Kanban Board</h1>
-          <p className="text-muted-foreground">Overview of all projects across clients</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Kanban Board</h1>
+            <p className="text-muted-foreground">Overview of all projects across clients</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-5 gap-4 min-h-[calc(100vh-220px)]">
+        {/* Filter Bar */}
+        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg flex-wrap">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">Filters:</span>
+          </div>
+
+          {/* Client Filter */}
+          <Select value={selectedClient} onValueChange={setSelectedClient}>
+            <SelectTrigger className="w-[180px] h-9 bg-background">
+              <SelectValue placeholder="All Clients" />
+            </SelectTrigger>
+            <SelectContent className="bg-background border shadow-lg z-50">
+              <SelectItem value="all">All Clients</SelectItem>
+              {companies.map(company => (
+                <SelectItem key={company.id} value={company.id}>
+                  {company.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Task Type Filter */}
+          <Select value={selectedType} onValueChange={setSelectedType}>
+            <SelectTrigger className="w-[160px] h-9 bg-background">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent className="bg-background border shadow-lg z-50">
+              <SelectItem value="all">All Types</SelectItem>
+              {projectTypes.map(type => (
+                <SelectItem key={type} value={type} className="capitalize">
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Show Blocked Toggle */}
+          <Button
+            variant={showBlocked ? 'default' : 'outline'}
+            size="sm"
+            className="h-9"
+            onClick={() => setShowBlocked(!showBlocked)}
+          >
+            <AlertCircle className="h-4 w-4 mr-1" />
+            Blocked Only
+          </Button>
+
+          {/* Clear Filters */}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 text-muted-foreground"
+              onClick={clearFilters}
+            >
+              Clear Filters
+            </Button>
+          )}
+
+          {/* Results count */}
+          <div className="ml-auto text-sm text-muted-foreground">
+            {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-5 gap-4 min-h-[calc(100vh-280px)]">
           {statusColumns.map((column) => {
-            const columnProjects = projects.filter(p => p.status === column.key);
+            const columnProjects = filteredProjects.filter(p => p.status === column.key);
             
             return (
               <div key={column.key} className="flex flex-col">
