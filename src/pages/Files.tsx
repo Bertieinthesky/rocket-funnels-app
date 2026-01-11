@@ -215,7 +215,7 @@ export default function Files() {
             mime_type: file.type,
             category: uploadCategory,
             uploaded_by: user?.id,
-            project_id: uploadProject || null,
+            project_id: uploadProject && uploadProject !== 'none' ? uploadProject : null,
             is_external_link: false,
           });
         
@@ -262,7 +262,7 @@ export default function Files() {
           file_url: linkUrl,
           category: uploadCategory,
           uploaded_by: user?.id,
-          project_id: uploadProject || null,
+          project_id: uploadProject && uploadProject !== 'none' ? uploadProject : null,
           is_external_link: true,
           external_platform: platform,
         });
@@ -724,7 +724,7 @@ export default function Files() {
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No project</SelectItem>
+                    <SelectItem value="none">No project</SelectItem>
                     {projects.map(project => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
@@ -800,7 +800,7 @@ export default function Files() {
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No project</SelectItem>
+                    <SelectItem value="none">No project</SelectItem>
                     {projects.map(project => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
