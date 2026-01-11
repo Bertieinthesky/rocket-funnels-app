@@ -198,14 +198,26 @@ export function FileCard({
     }
   };
 
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = file.file_url;
-    link.download = file.name;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async () => {
+    try {
+      // Fetch the file as a blob to handle cross-origin downloads
+      const response = await fetch(file.file_url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the blob URL
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      // Fallback: open in new tab if fetch fails
+      window.open(file.file_url, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -446,11 +458,20 @@ export function FileCard({
               </video>
             )}
             {previewType === 'pdf' && (
-              <iframe 
-                src={file.file_url}
+              <object 
+                data={file.file_url}
+                type="application/pdf"
                 className="w-full h-[65vh] rounded border"
-                title={file.title || file.name}
-              />
+              >
+                <div className="text-center py-12">
+                  <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">PDF preview not available in your browser</p>
+                  <Button onClick={handleDownload}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
+              </object>
             )}
             {previewType === 'other' && (
               <div className="text-center py-12">
