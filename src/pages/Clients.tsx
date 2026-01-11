@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { ClientCard } from '@/components/clients/ClientCard';
 import { Search, Building2, Plus } from 'lucide-react';
 
+type FilterType = 'all' | 'retainer' | 'one_time';
+
 interface Company {
   id: string;
   name: string;
@@ -20,6 +22,8 @@ interface Company {
   billing_email: string | null;
   project_count?: number;
   active_projects?: number;
+  action_items_for_us?: number;
+  action_items_for_client?: number;
 }
 
 export default function Clients() {
@@ -27,6 +31,7 @@ export default function Clients() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<FilterType>('all');
 
   useEffect(() => {
     fetchCompanies();
@@ -55,10 +60,28 @@ export default function Clients() {
             .eq('company_id', company.id)
             .in('status', ['queued', 'in_progress', 'revision', 'review']);
 
+          // Fetch action items for us (team) - files flagged for team
+          const { count: actionItemsForUs } = await supabase
+            .from('file_flags')
+            .select('*, files!inner(company_id)', { count: 'exact', head: true })
+            .eq('files.company_id', company.id)
+            .eq('flagged_for', 'team')
+            .eq('resolved', false);
+
+          // Fetch action items for client - files flagged for client
+          const { count: actionItemsForClient } = await supabase
+            .from('file_flags')
+            .select('*, files!inner(company_id)', { count: 'exact', head: true })
+            .eq('files.company_id', company.id)
+            .eq('flagged_for', 'client')
+            .eq('resolved', false);
+
           return {
             ...company,
             project_count: totalCount || 0,
             active_projects: activeCount || 0,
+            action_items_for_us: actionItemsForUs || 0,
+            action_items_for_client: actionItemsForClient || 0,
           };
         })
       );
@@ -71,9 +94,15 @@ export default function Clients() {
     }
   };
 
-  const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCompanies = companies.filter(company => {
+    const matchesSearch = company.name.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter = filter === 'all' 
+      ? true 
+      : filter === 'retainer' 
+        ? company.retainer_type === 'hourly' || company.retainer_type === 'unlimited'
+        : company.retainer_type === 'one_time';
+    return matchesSearch && matchesFilter;
+  });
 
   if (!isTeam && !isAdmin) {
     return (
@@ -103,14 +132,39 @@ export default function Clients() {
           )}
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search clients..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 max-w-sm"
-          />
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search clients..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={filter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('all')}
+            >
+              All
+            </Button>
+            <Button
+              variant={filter === 'retainer' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('retainer')}
+            >
+              Retainer
+            </Button>
+            <Button
+              variant={filter === 'one_time' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('one_time')}
+            >
+              One-Time
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -152,6 +206,8 @@ export default function Clients() {
                 hours_used={company.hours_used}
                 active_projects={company.active_projects || 0}
                 project_count={company.project_count || 0}
+                action_items_for_us={company.action_items_for_us || 0}
+                action_items_for_client={company.action_items_for_client || 0}
               />
             ))}
           </div>
