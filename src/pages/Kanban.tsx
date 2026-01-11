@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Loader2, Filter } from 'lucide-react';
+import { AlertCircle, Loader2, Filter, Calendar, Bell, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
+import { format, isPast, isToday, isTomorrow, differenceInDays } from 'date-fns';
 
 interface Project {
   id: string;
@@ -19,11 +20,18 @@ interface Project {
   blocked_reason: string | null;
   company_id: string;
   company_name?: string;
+  target_date: string | null;
 }
 
 interface Company {
   id: string;
   name: string;
+}
+
+interface ProjectNotifications {
+  pendingApprovals: number;
+  changeRequests: number;
+  newUpdates: number;
 }
 
 const statusColumns = [
@@ -48,6 +56,7 @@ export default function Kanban() {
   const { isTeam, isAdmin } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [projectNotifications, setProjectNotifications] = useState<Record<string, ProjectNotifications>>({});
   const [loading, setLoading] = useState(true);
 
   // Filter state
@@ -84,6 +93,37 @@ export default function Kanban() {
 
       setProjects(projectsWithCompany);
       setCompanies(companiesData || []);
+
+      // Fetch notifications for each project (updates with pending approvals, change requests, etc.)
+      const projectIds = (projectsData || []).map(p => p.id);
+      if (projectIds.length > 0) {
+        const { data: updatesData } = await supabase
+          .from('updates')
+          .select('project_id, is_deliverable, is_approved, change_request_text, change_request_submitted_at')
+          .in('project_id', projectIds);
+
+        // Calculate notifications per project
+        const notificationsMap: Record<string, ProjectNotifications> = {};
+        projectIds.forEach(id => {
+          notificationsMap[id] = { pendingApprovals: 0, changeRequests: 0, newUpdates: 0 };
+        });
+
+        (updatesData || []).forEach(update => {
+          if (!notificationsMap[update.project_id]) return;
+          
+          // Pending approval = deliverable with is_approved === null
+          if (update.is_deliverable && update.is_approved === null) {
+            notificationsMap[update.project_id].pendingApprovals++;
+          }
+          
+          // Change request = deliverable with is_approved === false and has change_request_text
+          if (update.is_deliverable && update.is_approved === false && update.change_request_text) {
+            notificationsMap[update.project_id].changeRequests++;
+          }
+        });
+
+        setProjectNotifications(notificationsMap);
+      }
     } catch (error) {
       console.error('Error fetching projects:', error);
     } finally {
@@ -117,6 +157,34 @@ export default function Kanban() {
   };
 
   const hasActiveFilters = selectedClient !== 'all' || selectedType !== 'all' || showBlocked;
+
+  const getDueDateInfo = (targetDate: string | null) => {
+    if (!targetDate) return null;
+    
+    const date = new Date(targetDate);
+    const now = new Date();
+    
+    if (isPast(date) && !isToday(date)) {
+      return { label: 'Overdue', className: 'text-destructive', icon: Calendar };
+    }
+    if (isToday(date)) {
+      return { label: 'Due today', className: 'text-warning', icon: Calendar };
+    }
+    if (isTomorrow(date)) {
+      return { label: 'Due tomorrow', className: 'text-warning', icon: Calendar };
+    }
+    const daysUntil = differenceInDays(date, now);
+    if (daysUntil <= 7) {
+      return { label: format(date, 'MMM d'), className: 'text-muted-foreground', icon: Calendar };
+    }
+    return { label: format(date, 'MMM d'), className: 'text-muted-foreground', icon: Calendar };
+  };
+
+  const getTotalNotifications = (projectId: string) => {
+    const notif = projectNotifications[projectId];
+    if (!notif) return 0;
+    return notif.pendingApprovals + notif.changeRequests;
+  };
 
   if (!isTeam && !isAdmin) {
     return (
@@ -231,33 +299,81 @@ export default function Kanban() {
                 
                 <ScrollArea className="flex-1 border border-t-0 rounded-b-lg bg-muted/20">
                   <div className="p-2 space-y-2">
-                    {columnProjects.map((project) => (
-                      <Link key={project.id} to={`/projects/${project.id}`}>
-                        <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                          <CardHeader className="p-3 pb-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <CardTitle className="text-sm font-medium leading-tight">
-                                {project.name}
-                              </CardTitle>
-                              {project.is_blocked && (
-                                <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                    {columnProjects.map((project) => {
+                      const dueDateInfo = getDueDateInfo(project.target_date);
+                      const totalNotifications = getTotalNotifications(project.id);
+                      const notif = projectNotifications[project.id];
+                      
+                      return (
+                        <Link key={project.id} to={`/projects/${project.id}`}>
+                          <Card className={`hover:border-primary/50 transition-colors cursor-pointer ${
+                            project.is_blocked 
+                              ? 'border-destructive/50 bg-destructive/5 ring-1 ring-destructive/20' 
+                              : ''
+                          }`}>
+                            <CardHeader className="p-3 pb-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <CardTitle className="text-sm font-medium leading-tight">
+                                  {project.name}
+                                </CardTitle>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {totalNotifications > 0 && (
+                                    <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                                      {totalNotifications}
+                                    </Badge>
+                                  )}
+                                  {project.is_blocked && (
+                                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+                                      <AlertCircle className="h-3 w-3" />
+                                      <span className="text-[10px] font-medium uppercase">Blocked</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <CardDescription className="text-xs truncate">
+                                {project.company_name}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-3 pt-0 space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge 
+                                  variant="secondary" 
+                                  className={`text-xs ${typeColors[project.project_type]}`}
+                                >
+                                  {project.project_type}
+                                </Badge>
+                                
+                                {/* Due Date */}
+                                {dueDateInfo && (
+                                  <span className={`text-xs flex items-center gap-1 ${dueDateInfo.className}`}>
+                                    <Calendar className="h-3 w-3" />
+                                    {dueDateInfo.label}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* Notification indicators */}
+                              {notif && (notif.pendingApprovals > 0 || notif.changeRequests > 0) && (
+                                <div className="flex items-center gap-2 text-[10px]">
+                                  {notif.pendingApprovals > 0 && (
+                                    <span className="flex items-center gap-1 text-primary">
+                                      <CheckCircle className="h-3 w-3" />
+                                      {notif.pendingApprovals} pending
+                                    </span>
+                                  )}
+                                  {notif.changeRequests > 0 && (
+                                    <span className="flex items-center gap-1 text-warning">
+                                      <XCircle className="h-3 w-3" />
+                                      {notif.changeRequests} revision{notif.changeRequests !== 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                </div>
                               )}
-                            </div>
-                            <CardDescription className="text-xs truncate">
-                              {project.company_name}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="p-3 pt-0">
-                            <Badge 
-                              variant="secondary" 
-                              className={`text-xs ${typeColors[project.project_type]}`}
-                            >
-                              {project.project_type}
-                            </Badge>
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    ))}
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      );
+                    })}
                     
                     {columnProjects.length === 0 && (
                       <div className="text-center py-8 text-muted-foreground text-sm">
