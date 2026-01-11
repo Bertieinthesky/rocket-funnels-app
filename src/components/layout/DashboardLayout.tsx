@@ -104,7 +104,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const adminNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/clients', icon: Building2, label: 'Companies' },
+    { to: '/clients', icon: Building2, label: 'Clients' },
     { to: '/kanban', icon: Kanban, label: 'Kanban' },
     { to: '/files', icon: FileText, label: 'Files' },
     { to: '/users', icon: Users, label: 'Users' },
