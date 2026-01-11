@@ -82,6 +82,7 @@ export function ChangeRequestModal({
   const LinkTypeIcon = linkDisplay?.icon || LinkIcon;
 
   const handleSaveDraft = async () => {
+    if (saving || submitting) return; // Prevent double-submission
     setSaving(true);
     try {
       await onSaveDraft(text, link, linkType);
@@ -91,6 +92,7 @@ export function ChangeRequestModal({
   };
 
   const handleSubmit = async () => {
+    if (saving || submitting) return; // Prevent double-submission
     setSubmitting(true);
     try {
       await onSubmit(text, link, linkType);

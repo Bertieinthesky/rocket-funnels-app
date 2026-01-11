@@ -88,6 +88,7 @@ export default function ProjectDetail() {
   const [updates, setUpdates] = useState<Update[]>([]);
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState<string | null>(null);
+  const [submittingChangeRequest, setSubmittingChangeRequest] = useState(false);
   
   // Change request modal
   const [changeRequestUpdate, setChangeRequestUpdate] = useState<Update | null>(null);
@@ -150,6 +151,8 @@ export default function ProjectDetail() {
   };
 
   const handleApproveDeliverable = async (updateId: string) => {
+    // Prevent double-submission
+    if (approving) return;
     setApproving(updateId);
     
     try {
@@ -185,7 +188,8 @@ export default function ProjectDetail() {
   };
 
   const handleSaveChangeRequestDraft = async (text: string, link: string, linkType: string | null) => {
-    if (!changeRequestUpdate) return;
+    if (!changeRequestUpdate || submittingChangeRequest) return;
+    setSubmittingChangeRequest(true);
     
     try {
       const { error } = await supabase
@@ -213,11 +217,14 @@ export default function ProjectDetail() {
         description: 'Failed to save draft',
         variant: 'destructive',
       });
+    } finally {
+      setSubmittingChangeRequest(false);
     }
   };
 
   const handleSubmitChangeRequest = async (text: string, link: string, linkType: string | null) => {
-    if (!changeRequestUpdate) return;
+    if (!changeRequestUpdate || submittingChangeRequest) return;
+    setSubmittingChangeRequest(true);
     
     try {
       const { error } = await supabase
@@ -246,6 +253,8 @@ export default function ProjectDetail() {
         description: 'Failed to submit change request',
         variant: 'destructive',
       });
+    } finally {
+      setSubmittingChangeRequest(false);
     }
   };
 
