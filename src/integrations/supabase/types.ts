@@ -393,6 +393,11 @@ export type Database = {
       updates: {
         Row: {
           author_id: string | null
+          change_request_draft: boolean | null
+          change_request_link: string | null
+          change_request_link_type: string | null
+          change_request_submitted_at: string | null
+          change_request_text: string | null
           content: string
           created_at: string
           hours_logged: number | null
@@ -403,6 +408,11 @@ export type Database = {
         }
         Insert: {
           author_id?: string | null
+          change_request_draft?: boolean | null
+          change_request_link?: string | null
+          change_request_link_type?: string | null
+          change_request_submitted_at?: string | null
+          change_request_text?: string | null
           content: string
           created_at?: string
           hours_logged?: number | null
@@ -413,6 +423,11 @@ export type Database = {
         }
         Update: {
           author_id?: string | null
+          change_request_draft?: boolean | null
+          change_request_link?: string | null
+          change_request_link_type?: string | null
+          change_request_submitted_at?: string | null
+          change_request_text?: string | null
           content?: string
           created_at?: string
           hours_logged?: number | null
