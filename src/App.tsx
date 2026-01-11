@@ -24,9 +24,10 @@ const queryClient = new QueryClient();
 
 // Protected route wrapper that checks approval status
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, isApproved, isAdmin, isTeam } = useAuth();
+  const { user, loading, rolesLoading, isApproved, isAdmin, isTeam } = useAuth();
 
-  if (loading) {
+  // Wait for both auth and roles to finish loading
+  if (loading || rolesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -48,9 +49,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Route that only shows for unapproved users
 function PendingApprovalRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, isApproved, isAdmin, isTeam } = useAuth();
+  const { user, loading, rolesLoading, isApproved, isAdmin, isTeam } = useAuth();
 
-  if (loading) {
+  // Wait for both auth and roles to finish loading
+  if (loading || rolesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  rolesLoading: boolean;
   roles: AppRole[];
   isApproved: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
@@ -28,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [isApproved, setIsApproved] = useState(false);
 
@@ -40,13 +42,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Defer role and approval fetching with setTimeout to avoid deadlock
         if (session?.user) {
-          setTimeout(() => {
-            fetchUserRoles(session.user.id);
-            fetchApprovalStatus(session.user.id);
+          setRolesLoading(true);
+          setTimeout(async () => {
+            await Promise.all([
+              fetchUserRoles(session.user.id),
+              fetchApprovalStatus(session.user.id)
+            ]);
+            setRolesLoading(false);
           }, 0);
         } else {
           setRoles([]);
           setIsApproved(false);
+          setRolesLoading(false);
         }
         
         setLoading(false);
@@ -59,8 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserRoles(session.user.id);
-        fetchApprovalStatus(session.user.id);
+        setRolesLoading(true);
+        Promise.all([
+          fetchUserRoles(session.user.id),
+          fetchApprovalStatus(session.user.id)
+        ]).then(() => setRolesLoading(false));
+      } else {
+        setRolesLoading(false);
       }
       
       setLoading(false);
@@ -189,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       session,
       loading,
+      rolesLoading,
       roles,
       isApproved,
       signUp,
