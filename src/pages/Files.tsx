@@ -574,17 +574,7 @@ export default function Files() {
 
         {/* Action Bar */}
         <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-          <Button 
-            size="sm"
-            className="h-8"
-            onClick={() => setShowUploadModal(true)}
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            Add File
-          </Button>
-          
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-sm text-muted-foreground">Project:</span>
+          <div className="flex items-center gap-2">
             <Select value={selectedProject} onValueChange={setSelectedProject}>
               <SelectTrigger className="h-8 w-40">
                 <SelectValue placeholder="All Projects" />
@@ -599,16 +589,6 @@ export default function Files() {
               </SelectContent>
             </Select>
             
-            <Button
-              variant={showFlagged ? "default" : "outline"}
-              size="sm"
-              className="h-8"
-              onClick={() => setShowFlagged(!showFlagged)}
-            >
-              <Flag className="mr-1 h-3 w-3" />
-              Flagged
-            </Button>
-            
             {canManage && (
               <Button
                 variant={showFavorites ? "default" : "outline"}
@@ -620,7 +600,26 @@ export default function Files() {
                 Favorites
               </Button>
             )}
+            
+            <Button
+              variant={showFlagged ? "default" : "outline"}
+              size="sm"
+              className="h-8"
+              onClick={() => setShowFlagged(!showFlagged)}
+            >
+              <Flag className="mr-1 h-3 w-3" />
+              Flagged
+            </Button>
           </div>
+          
+          <Button 
+            size="sm"
+            className="h-8 ml-auto"
+            onClick={() => setShowUploadModal(true)}
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Add File
+          </Button>
         </div>
 
         {/* Category Pills - Single line */}
