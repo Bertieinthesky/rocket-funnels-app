@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileCard } from '@/components/files/FileCard';
+import { FilePreviewModal } from '@/components/files/FilePreviewModal';
 import { FlagModal } from '@/components/files/FlagModal';
 import { FlagResolveModal } from '@/components/files/FlagResolveModal';
 import {
@@ -149,7 +150,38 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
   } | null>(null);
   const [resolvingFileName, setResolvingFileName] = useState('');
 
+  // Preview modal state
+  const [previewFileId, setPreviewFileId] = useState<string | null>(null);
+
   const userRole = isAdmin ? 'admin' : isTeam ? 'team' : 'client';
+
+  // Get navigable files (images, videos, testimonials) for preview navigation
+  const navigableFiles = files.filter(f => {
+    if (f.is_external_link) return false;
+    const category = f.category;
+    if (category === 'images' || category === 'video' || category === 'testimonials') return true;
+    // Also check mime type for images/videos
+    const mimeType = f.mime_type;
+    if (mimeType?.startsWith('image/') || mimeType?.startsWith('video/')) return true;
+    return false;
+  });
+
+  const currentPreviewFile = previewFileId ? files.find(f => f.id === previewFileId) : null;
+  const currentPreviewIndex = previewFileId ? navigableFiles.findIndex(f => f.id === previewFileId) : -1;
+  const hasPrevPreview = currentPreviewIndex > 0;
+  const hasNextPreview = currentPreviewIndex >= 0 && currentPreviewIndex < navigableFiles.length - 1;
+
+  const handleNavigatePrev = () => {
+    if (hasPrevPreview) {
+      setPreviewFileId(navigableFiles[currentPreviewIndex - 1].id);
+    }
+  };
+
+  const handleNavigateNext = () => {
+    if (hasNextPreview) {
+      setPreviewFileId(navigableFiles[currentPreviewIndex + 1].id);
+    }
+  };
 
   useEffect(() => {
     fetchFiles();
@@ -685,6 +717,7 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
               }}
               onTogglePinned={() => handleTogglePinned(file)}
               onToggleFavorite={() => handleToggleFavorite(file)}
+              onPreview={() => setPreviewFileId(file.id)}
             />
           ))}
         </div>
@@ -943,6 +976,17 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
         flag={resolvingFlag}
         fileName={resolvingFileName}
         onResolve={handleResolveFlag}
+      />
+
+      {/* File Preview Modal with Navigation */}
+      <FilePreviewModal
+        file={currentPreviewFile}
+        open={!!previewFileId}
+        onOpenChange={(open) => !open && setPreviewFileId(null)}
+        onNavigatePrev={handleNavigatePrev}
+        onNavigateNext={handleNavigateNext}
+        hasPrev={hasPrevPreview}
+        hasNext={hasNextPreview}
       />
     </div>
   );
