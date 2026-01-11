@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Clock, FolderKanban, Repeat, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Clock, FolderKanban, Repeat, Zap, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -172,35 +172,18 @@ export function ClientCard({
               <span className="font-medium text-foreground">{active_projects}</span>
               <span>active</span>
             </div>
-            <span className="text-muted-foreground/40">•</span>
-            <div>
-              <span className="font-medium text-foreground">{project_count}</span>
-              <span> total</span>
-            </div>
+            {(action_items_for_us > 0 || action_items_for_client > 0) && (
+              <>
+                <span className="text-muted-foreground/40">•</span>
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                  <span className="font-medium text-foreground">{action_items_for_us + action_items_for_client}</span>
+                  <span>action items</span>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Action Items */}
-          {hasActionItems && (
-            <div className="flex items-center gap-3 text-sm mb-4 p-2 rounded-md bg-muted/50">
-              {action_items_for_us > 0 && (
-                <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  <span className="font-medium">{action_items_for_us}</span>
-                  <span className="text-muted-foreground">for us</span>
-                </div>
-              )}
-              {action_items_for_us > 0 && action_items_for_client > 0 && (
-                <span className="text-muted-foreground/40">•</span>
-              )}
-              {action_items_for_client > 0 && (
-                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span className="font-medium">{action_items_for_client}</span>
-                  <span className="text-muted-foreground">for client</span>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Hours Progress - Only for retainer clients */}
           {retainer_type === 'hourly' && hours_allocated && hours_allocated > 0 && (

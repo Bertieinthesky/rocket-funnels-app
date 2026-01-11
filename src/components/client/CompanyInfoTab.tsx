@@ -49,6 +49,7 @@ interface FormData {
   hours_allocated: string;
   hourly_rate: string;
   payment_schedule: string;
+  retainer_type: string;
 }
 
 export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
@@ -64,6 +65,7 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
     hours_allocated: company.hours_allocated?.toString() || '',
     hourly_rate: company.hourly_rate?.toString() || '',
     payment_schedule: company.payment_schedule || '',
+    retainer_type: company.retainer_type || 'one_time',
   });
 
   const startEditing = () => {
@@ -75,6 +77,7 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
       hours_allocated: company.hours_allocated?.toString() || '',
       hourly_rate: company.hourly_rate?.toString() || '',
       payment_schedule: company.payment_schedule || '',
+      retainer_type: company.retainer_type || 'one_time',
     });
     setIsEditing(true);
   };
@@ -138,6 +141,7 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
           hours_allocated: hoursAllocated,
           hourly_rate: hourlyRate,
           payment_schedule: formData.payment_schedule || null,
+          retainer_type: formData.retainer_type as 'unlimited' | 'hourly' | 'one_time',
         })
         .eq('id', company.id);
 
@@ -222,59 +226,79 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
               />
             </div>
 
-            {/* Retainer Details Section */}
-            <div className="sm:col-span-2 pt-4 border-t">
-              <h3 className="text-sm font-medium text-muted-foreground mb-4">Retainer Details</h3>
-              <div className="grid gap-6 sm:grid-cols-3">
-                {/* Payment Schedule */}
-                <div className="space-y-2">
-                  <Label htmlFor="payment_schedule">Payment Schedule</Label>
-                  <Select 
-                    value={formData.payment_schedule} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, payment_schedule: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payment schedule" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1st">1st of the month</SelectItem>
-                      <SelectItem value="15th">15th of the month</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            {/* Client Type */}
+            <div className="space-y-2">
+              <Label htmlFor="retainer_type">Client Type</Label>
+              <Select 
+                value={formData.retainer_type} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, retainer_type: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select client type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="one_time">One-Time</SelectItem>
+                  <SelectItem value="hourly">Retainer (Hourly)</SelectItem>
+                  <SelectItem value="unlimited">Unlimited</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                {/* Monthly Hours */}
-                <div className="space-y-2">
-                  <Label htmlFor="hours_allocated">Monthly Hours</Label>
-                  <Input
-                    id="hours_allocated"
-                    type="number"
-                    min={1}
-                    value={formData.hours_allocated}
-                    onChange={(e) => setFormData(prev => ({ ...prev, hours_allocated: e.target.value }))}
-                    placeholder="40"
-                  />
-                </div>
+            {/* Retainer Details Section - Only show for hourly clients */}
+            {formData.retainer_type === 'hourly' && (
+              <div className="sm:col-span-2 pt-4 border-t">
+                <h3 className="text-sm font-medium text-muted-foreground mb-4">Retainer Details</h3>
+                <div className="grid gap-6 sm:grid-cols-3">
+                  {/* Payment Schedule */}
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_schedule">Payment Schedule</Label>
+                    <Select 
+                      value={formData.payment_schedule} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, payment_schedule: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment schedule" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1st">1st of the month</SelectItem>
+                        <SelectItem value="15th">15th of the month</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Hourly Rate */}
-                <div className="space-y-2">
-                  <Label htmlFor="hourly_rate">Hourly Rate ($)</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  {/* Monthly Hours */}
+                  <div className="space-y-2">
+                    <Label htmlFor="hours_allocated">Monthly Hours</Label>
                     <Input
-                      id="hourly_rate"
+                      id="hours_allocated"
                       type="number"
-                      min={0.01}
-                      step={0.01}
-                      value={formData.hourly_rate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, hourly_rate: e.target.value }))}
-                      placeholder="150.00"
-                      className="pl-7"
+                      min={1}
+                      value={formData.hours_allocated}
+                      onChange={(e) => setFormData(prev => ({ ...prev, hours_allocated: e.target.value }))}
+                      placeholder="40"
                     />
+                  </div>
+
+                  {/* Hourly Rate */}
+                  <div className="space-y-2">
+                    <Label htmlFor="hourly_rate">Hourly Rate ($)</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                      <Input
+                        id="hourly_rate"
+                        type="number"
+                        min={0.01}
+                        step={0.01}
+                        value={formData.hourly_rate}
+                        onChange={(e) => setFormData(prev => ({ ...prev, hourly_rate: e.target.value }))}
+                        placeholder="150.00"
+                        className="pl-7"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -342,46 +366,48 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
         </CardContent>
       </Card>
 
-      {/* Retainer Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Retainer Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Payment Schedule */}
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Payment Schedule
-            </p>
-            {company.payment_schedule ? (
-              <Badge variant="secondary">{company.payment_schedule} of the month</Badge>
-            ) : (
-              <p className="font-medium text-muted-foreground">Not set</p>
-            )}
-          </div>
+      {/* Retainer Details - Only show for hourly clients */}
+      {company.retainer_type === 'hourly' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Retainer Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Payment Schedule */}
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Payment Schedule
+              </p>
+              {company.payment_schedule ? (
+                <Badge variant="secondary">{company.payment_schedule} of the month</Badge>
+              ) : (
+                <p className="font-medium text-muted-foreground">Not set</p>
+              )}
+            </div>
 
-          {/* Hourly Rate */}
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Hourly Rate
-            </p>
-            <p className="font-medium text-xl">
-              ${company.hourly_rate?.toFixed(2) || '0.00'}
-            </p>
-          </div>
+            {/* Hourly Rate */}
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Hourly Rate
+              </p>
+              <p className="font-medium text-xl">
+                ${company.hourly_rate?.toFixed(2) || '0.00'}
+              </p>
+            </div>
 
-          {/* Hour Tracker with Traffic Light */}
-          <div className="pt-2">
-            <HourTracker 
-              hoursUsed={hoursUsed} 
-              monthlyHours={hoursAllocated}
-              showWarning={true}
-            />
-          </div>
-        </CardContent>
-      </Card>
+            {/* Hour Tracker with Traffic Light */}
+            <div className="pt-2">
+              <HourTracker 
+                hoursUsed={hoursUsed} 
+                monthlyHours={hoursAllocated}
+                showWarning={true}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
