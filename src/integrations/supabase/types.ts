@@ -508,7 +508,7 @@ export type Database = {
         | "review"
         | "complete"
       project_type: "design" | "development" | "content" | "strategy" | "other"
-      retainer_type: "unlimited" | "hourly"
+      retainer_type: "unlimited" | "hourly" | "one_time"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -656,7 +656,7 @@ export const Constants = {
         "complete",
       ],
       project_type: ["design", "development", "content", "strategy", "other"],
-      retainer_type: ["unlimited", "hourly"],
+      retainer_type: ["unlimited", "hourly", "one_time"],
     },
   },
 } as const
