@@ -9,6 +9,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   roles: AppRole[];
+  isApproved: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
@@ -18,6 +19,7 @@ interface AuthContextType {
   isClient: boolean;
   isTeam: boolean;
   isAdmin: boolean;
+  refreshApprovalStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [isApproved, setIsApproved] = useState(false);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -35,13 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer role fetching with setTimeout to avoid deadlock
+        // Defer role and approval fetching with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
             fetchUserRoles(session.user.id);
+            fetchApprovalStatus(session.user.id);
           }, 0);
         } else {
           setRoles([]);
+          setIsApproved(false);
         }
         
         setLoading(false);
@@ -55,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         fetchUserRoles(session.user.id);
+        fetchApprovalStatus(session.user.id);
       }
       
       setLoading(false);
@@ -76,6 +82,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching user roles:', error);
       setRoles([]);
+    }
+  };
+
+  const fetchApprovalStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_approved')
+        .eq('id', userId)
+        .single();
+      
+      if (error) throw error;
+      
+      setIsApproved(data?.is_approved || false);
+    } catch (error) {
+      console.error('Error fetching approval status:', error);
+      setIsApproved(false);
+    }
+  };
+
+  const refreshApprovalStatus = async () => {
+    if (user) {
+      await fetchApprovalStatus(user.id);
     }
   };
 
@@ -136,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setRoles([]);
+    setIsApproved(false);
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
@@ -150,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       roles,
+      isApproved,
       signUp,
       signIn,
       signInWithGoogle,
@@ -158,7 +189,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasRole,
       isClient,
       isTeam,
-      isAdmin
+      isAdmin,
+      refreshApprovalStatus
     }}>
       {children}
     </AuthContext.Provider>

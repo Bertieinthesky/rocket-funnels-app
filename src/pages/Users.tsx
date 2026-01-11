@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Table, 
   TableBody, 
@@ -15,7 +16,9 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { Search, Users as UsersIcon, Plus, Loader2 } from 'lucide-react';
+import { UserApprovalModal } from '@/components/users/UserApprovalModal';
+import { Search, Users as UsersIcon, Plus, Loader2, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface UserProfile {
   id: string;
@@ -25,6 +28,8 @@ interface UserProfile {
   company_id: string | null;
   company_name?: string;
   roles: string[];
+  is_approved: boolean;
+  created_at: string;
 }
 
 const roleColors: Record<string, string> = {
@@ -38,6 +43,10 @@ export default function Users() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
+  
+  // Approval modal
+  const [approvalModalUser, setApprovalModalUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -65,7 +74,7 @@ export default function Users() {
       const { data: companiesData } = await supabase
         .from('companies')
         .select('id, name')
-        .in('id', companyIds);
+        .in('id', companyIds.length > 0 ? companyIds : ['00000000-0000-0000-0000-000000000000']);
 
       const companyMap = new Map(companiesData?.map(c => [c.id, c.name]));
       const rolesMap = new Map<string, string[]>();
@@ -79,6 +88,7 @@ export default function Users() {
         ...profile,
         company_name: profile.company_id ? companyMap.get(profile.company_id) : undefined,
         roles: rolesMap.get(profile.id) || [],
+        is_approved: profile.is_approved || false,
       }));
 
       setUsers(usersWithRoles);
@@ -89,7 +99,15 @@ export default function Users() {
     }
   };
 
-  const filteredUsers = users.filter(user =>
+  const pendingUsers = users.filter(u => !u.is_approved);
+  const approvedUsers = users.filter(u => u.is_approved);
+
+  const filteredPendingUsers = pendingUsers.filter(user =>
+    (user.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+     user.email?.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const filteredApprovedUsers = approvedUsers.filter(user =>
     (user.full_name?.toLowerCase().includes(search.toLowerCase()) ||
      user.email?.toLowerCase().includes(search.toLowerCase()))
   );
@@ -110,6 +128,104 @@ export default function Users() {
       </DashboardLayout>
     );
   }
+
+  const renderUserTable = (userList: UserProfile[], showApproveAction: boolean) => {
+    if (userList.length === 0) {
+      return (
+        <Card>
+          <CardContent className="py-12 text-center">
+            {showApproveAction ? (
+              <>
+                <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-4" />
+                <p className="text-muted-foreground">No pending approvals!</p>
+                <p className="text-sm text-muted-foreground">All users have been reviewed.</p>
+              </>
+            ) : (
+              <>
+                <UsersIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  {search ? 'No users found matching your search.' : 'No approved users yet.'}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Roles</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Signed Up</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {userList.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user.avatar_url || ''} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                        {getInitials(user.full_name, user.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{user.full_name || 'Unnamed'}</p>
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1 flex-wrap">
+                    {user.roles.map((role) => (
+                      <Badge key={role} className={roleColors[role]}>
+                        {role}
+                      </Badge>
+                    ))}
+                    {user.roles.length === 0 && (
+                      <span className="text-muted-foreground text-sm">No roles</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {user.company_name || (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground">
+                    {formatDistanceToNow(new Date(user.created_at), { addSuffix: true })}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  {showApproveAction ? (
+                    <Button 
+                      size="sm"
+                      onClick={() => setApprovalModalUser(user)}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="sm">
+                      Edit
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -139,72 +255,54 @@ export default function Users() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : filteredUsers.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <UsersIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                {search ? 'No users found matching your search.' : 'No users yet.'}
-              </p>
-            </CardContent>
-          </Card>
         ) : (
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={user.avatar_url || ''} />
-                          <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                            {getInitials(user.full_name, user.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{user.full_name || 'Unnamed'}</p>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {user.roles.map((role) => (
-                          <Badge key={role} className={roleColors[role]}>
-                            {role}
-                          </Badge>
-                        ))}
-                        {user.roles.length === 0 && (
-                          <span className="text-muted-foreground text-sm">No roles</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {user.company_name || (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">
-                        Edit
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pending' | 'approved')}>
+            <TabsList>
+              <TabsTrigger value="pending" className="gap-2">
+                <Clock className="h-4 w-4" />
+                Pending Approval
+                {pendingUsers.length > 0 && (
+                  <Badge variant="destructive" className="h-5 px-1.5">
+                    {pendingUsers.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="approved" className="gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Approved Users ({approvedUsers.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pending" className="mt-4">
+              {pendingUsers.length > 0 && (
+                <Card className="mb-4 border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-900/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-amber-600" />
+                      {pendingUsers.length} User{pendingUsers.length !== 1 ? 's' : ''} Awaiting Approval
+                    </CardTitle>
+                    <CardDescription>
+                      Review and assign these users to a company before they can access the portal.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
+              {renderUserTable(filteredPendingUsers, true)}
+            </TabsContent>
+
+            <TabsContent value="approved" className="mt-4">
+              {renderUserTable(filteredApprovedUsers, false)}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
+
+      <UserApprovalModal
+        open={!!approvalModalUser}
+        onOpenChange={(open) => !open && setApprovalModalUser(null)}
+        user={approvalModalUser}
+        onApproved={fetchUsers}
+      />
     </DashboardLayout>
   );
 }
