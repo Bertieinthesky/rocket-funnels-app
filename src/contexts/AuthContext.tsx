@@ -75,10 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId);
-      
+
       if (error) throw error;
-      
-      setRoles(data?.map(r => r.role as AppRole) || []);
+
+      // De-dupe in case there are accidental duplicates
+      const unique = Array.from(new Set((data || []).map(r => r.role as AppRole)));
+      setRoles(unique);
     } catch (error) {
       console.error('Error fetching user roles:', error);
       setRoles([]);
@@ -169,10 +171,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
-  
-  const isClient = roles.includes('client');
-  const isTeam = roles.includes('team');
-  const isAdmin = roles.includes('admin');
+
+  // Pick a single effective role to avoid UI/permission duplication when a user has multiple role rows.
+  // Highest privilege wins: admin > team > client
+  const primaryRole: AppRole = roles.includes('admin')
+    ? 'admin'
+    : roles.includes('team')
+      ? 'team'
+      : 'client';
+
+  const isClient = primaryRole === 'client';
+  const isTeam = primaryRole === 'team';
+  const isAdmin = primaryRole === 'admin';
 
   return (
     <AuthContext.Provider value={{
