@@ -175,9 +175,11 @@ export type Database = {
           id: string
           is_external_link: boolean | null
           is_favorite: boolean | null
+          is_optimized: boolean | null
           is_pinned_to_dashboard: boolean | null
           mime_type: string | null
           name: string
+          original_file_size: number | null
           project_id: string | null
           title: string | null
           update_id: string | null
@@ -196,9 +198,11 @@ export type Database = {
           id?: string
           is_external_link?: boolean | null
           is_favorite?: boolean | null
+          is_optimized?: boolean | null
           is_pinned_to_dashboard?: boolean | null
           mime_type?: string | null
           name: string
+          original_file_size?: number | null
           project_id?: string | null
           title?: string | null
           update_id?: string | null
@@ -217,9 +221,11 @@ export type Database = {
           id?: string
           is_external_link?: boolean | null
           is_favorite?: boolean | null
+          is_optimized?: boolean | null
           is_pinned_to_dashboard?: boolean | null
           mime_type?: string | null
           name?: string
+          original_file_size?: number | null
           project_id?: string | null
           title?: string | null
           update_id?: string | null

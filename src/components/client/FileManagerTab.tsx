@@ -16,6 +16,7 @@ import { FileCard } from '@/components/files/FileCard';
 import { FilePreviewModal } from '@/components/files/FilePreviewModal';
 import { FlagModal } from '@/components/files/FlagModal';
 import { FlagResolveModal } from '@/components/files/FlagResolveModal';
+import { isOptimizableImage, optimizeImage } from '@/lib/imageOptimization';
 import {
   Upload,
   FileText,
@@ -47,6 +48,8 @@ interface FileRecord {
   uploaded_by?: string;
   is_external_link?: boolean;
   external_platform?: string;
+  is_optimized?: boolean;
+  original_file_size?: number | null;
 }
 
 interface FileFlag {
@@ -298,13 +301,45 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
 
         if (dbError) throw dbError;
       } else {
+        // Check if image can be optimized
+        const shouldOptimize = isOptimizableImage(selectedFile!);
+        
         // Upload file
         const fileExt = selectedFile!.name.split('.').pop();
         const filePath = `${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
+        let uploadData: Blob | File = selectedFile!;
+        let finalSize = selectedFile!.size;
+        let finalMimeType = selectedFile!.type;
+        let isOptimized = false;
+        let originalFileSize = selectedFile!.size;
+
+        // Optimize image if applicable
+        if (shouldOptimize) {
+          try {
+            const optimized = await optimizeImage(selectedFile!);
+            
+            // Convert base64 to blob
+            const base64Data = optimized.data.split(',')[1];
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            uploadData = new Blob([bytes], { type: optimized.mimeType });
+            finalSize = uploadData.size;
+            finalMimeType = optimized.mimeType;
+            isOptimized = true;
+            
+            console.log(`Image optimized: ${originalFileSize} → ${finalSize} bytes`);
+          } catch (err) {
+            console.error('Image optimization failed, using original:', err);
+          }
+        }
+
         const { error: uploadError } = await supabase.storage
           .from('portal-files')
-          .upload(filePath, selectedFile!);
+          .upload(filePath, uploadData);
 
         if (uploadError) throw uploadError;
 
@@ -320,12 +355,14 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
             title: uploadForm.title,
             description: uploadForm.description || null,
             file_url: urlData.publicUrl,
-            file_size: selectedFile!.size,
-            mime_type: selectedFile!.type,
+            file_size: finalSize,
+            mime_type: finalMimeType,
             category: uploadForm.category,
             project_id: uploadForm.project_id || null,
             uploaded_by: user?.id,
             is_external_link: false,
+            is_optimized: isOptimized,
+            original_file_size: isOptimized ? originalFileSize : null,
           });
 
         if (dbError) throw dbError;
