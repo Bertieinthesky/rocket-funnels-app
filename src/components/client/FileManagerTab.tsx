@@ -18,17 +18,13 @@ import { FlagResolveModal } from '@/components/files/FlagResolveModal';
 import {
   Upload,
   FileText,
-  Image,
-  Video,
   Star,
   Flag,
   Loader2,
   FolderOpen,
-  Palette,
   X,
   Link as LinkIcon,
   Plus,
-  Package
 } from 'lucide-react';
 
 type FileCategory = 'documents' | 'images' | 'testimonials' | 'video' | 'brand' | 'content' | 'designs' | 'copy' | 'other';
@@ -79,12 +75,12 @@ interface FileManagerTabProps {
 }
 
 const categories = [
-  { value: 'documents', label: 'Documents', icon: FileText },
-  { value: 'images', label: 'Images', icon: Image },
-  { value: 'designs', label: 'Design Files', icon: Palette },
-  { value: 'testimonials', label: 'Testimonials', icon: Star },
-  { value: 'video', label: 'Video', icon: Video },
-  { value: 'other', label: 'Other', icon: Package },
+  { value: 'documents', label: 'Documents' },
+  { value: 'images', label: 'Images' },
+  { value: 'designs', label: 'Design Files' },
+  { value: 'testimonials', label: 'Testimonials' },
+  { value: 'video', label: 'Video' },
+  { value: 'other', label: 'Other' },
 ];
 
 const formatFileSize = (bytes: number | null) => {
@@ -615,7 +611,6 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
 
           {/* Category Buttons */}
           {categories.map((cat) => {
-            const Icon = cat.icon;
             const isSelected = selectedCategories.includes(cat.value);
             const count = getCategoryCount(cat.value);
 
@@ -625,11 +620,10 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
                 variant={isSelected ? 'default' : 'outline'}
                 size="default"
                 onClick={() => toggleCategory(cat.value)}
-                className="h-10 gap-2"
+                className="h-10"
               >
-                <Icon className="h-4 w-4" />
                 {cat.label}
-                <Badge variant="secondary" className="ml-1">
+                <Badge variant="secondary" className="ml-2">
                   {count}
                 </Badge>
               </Button>
@@ -723,31 +717,12 @@ export function FileManagerTab({ companyId, projects }: FileManagerTabProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="documents">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" /> Documents
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="images">
-                    <div className="flex items-center gap-2">
-                      <Image className="h-4 w-4" /> Images
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="designs">
-                    <div className="flex items-center gap-2">
-                      <Palette className="h-4 w-4" /> Design Files
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="testimonials">
-                    <div className="flex items-center gap-2">
-                      <Star className="h-4 w-4" /> Testimonials
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="video">
-                    <div className="flex items-center gap-2">
-                      <Video className="h-4 w-4" /> Video
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="documents">Documents</SelectItem>
+                  <SelectItem value="images">Images</SelectItem>
+                  <SelectItem value="designs">Design Files</SelectItem>
+                  <SelectItem value="testimonials">Testimonials</SelectItem>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
