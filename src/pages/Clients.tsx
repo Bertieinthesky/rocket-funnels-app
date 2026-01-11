@@ -3,18 +3,17 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, Building2, Clock, FolderKanban, Plus } from 'lucide-react';
+import { ClientCard } from '@/components/clients/ClientCard';
+import { Search, Building2, Plus } from 'lucide-react';
 
 interface Company {
   id: string;
   name: string;
   logo_url: string | null;
-  retainer_type: string;
+  retainer_type: 'unlimited' | 'hourly' | 'one_time';
   hours_allocated: number | null;
   hours_used: number | null;
   max_concurrent_projects: number | null;
@@ -64,7 +63,7 @@ export default function Clients() {
         })
       );
 
-      setCompanies(companiesWithProjects);
+      setCompanies(companiesWithProjects as Company[]);
     } catch (error) {
       console.error('Error fetching companies:', error);
     } finally {
@@ -75,10 +74,6 @@ export default function Clients() {
   const filteredCompanies = companies.filter(company =>
     company.name.toLowerCase().includes(search.toLowerCase())
   );
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
 
   if (!isTeam && !isAdmin) {
     return (
@@ -96,13 +91,13 @@ export default function Clients() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Clients</h1>
-            <p className="text-muted-foreground">Manage your client companies</p>
+            <p className="text-muted-foreground">Manage your client accounts</p>
           </div>
           {isAdmin && (
             <Button asChild>
               <Link to="/clients/new">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Company
+                Add Client
               </Link>
             </Button>
           )}
@@ -111,7 +106,7 @@ export default function Clients() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search companies..."
+            placeholder="Search clients..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 max-w-sm"
@@ -122,11 +117,16 @@ export default function Clients() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
-                <CardHeader className="space-y-2">
-                  <div className="h-10 w-10 rounded-full bg-muted" />
-                  <div className="h-5 w-32 bg-muted rounded" />
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="h-14 w-14 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-5 w-32 bg-muted rounded" />
+                      <div className="h-5 w-20 bg-muted rounded" />
+                    </div>
+                  </div>
                   <div className="h-4 w-24 bg-muted rounded" />
-                </CardHeader>
+                </CardContent>
               </Card>
             ))}
           </div>
@@ -135,52 +135,24 @@ export default function Clients() {
             <CardContent className="py-12 text-center">
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                {search ? 'No companies found matching your search.' : 'No companies yet.'}
+                {search ? 'No clients found matching your search.' : 'No clients yet.'}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredCompanies.map((company) => (
-              <Link key={company.id} to={`/clients/${company.id}`}>
-                <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
-                  <CardHeader>
-                    <div className="flex items-start gap-4">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={company.logo_url || ''} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                          {getInitials(company.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-lg truncate">{company.name}</CardTitle>
-                        <CardDescription className="truncate">
-                          {company.billing_email || 'No billing email'}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1.5">
-                        <FolderKanban className="h-4 w-4 text-muted-foreground" />
-                        <span>{company.active_projects} active</span>
-                      </div>
-                      {company.retainer_type === 'hourly' && (
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>{company.hours_used || 0}/{company.hours_allocated || 0}h</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-3">
-                      <Badge variant={company.retainer_type === 'unlimited' ? 'default' : 'secondary'}>
-                        {company.retainer_type === 'unlimited' ? 'Unlimited' : 'Hourly'}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+              <ClientCard
+                key={company.id}
+                id={company.id}
+                name={company.name}
+                logo_url={company.logo_url}
+                retainer_type={company.retainer_type}
+                hours_allocated={company.hours_allocated}
+                hours_used={company.hours_used}
+                active_projects={company.active_projects || 0}
+                project_count={company.project_count || 0}
+              />
             ))}
           </div>
         )}
