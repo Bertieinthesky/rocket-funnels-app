@@ -9,6 +9,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   FileText,
   Image,
   Video,
@@ -22,6 +27,7 @@ import {
   Pin,
   Check,
   Palette,
+  CheckCircle2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -55,6 +61,8 @@ interface FileCardProps {
     uploaded_by?: string;
     is_external_link?: boolean;
     external_platform?: string;
+    is_optimized?: boolean;
+    original_file_size?: number | null;
   };
   flags?: FileFlag[];
   projectName: string;
@@ -230,9 +238,33 @@ export function FileCard({
         </div>
 
         {/* File info */}
-        <div className="mt-2 text-xs text-muted-foreground">
-          {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
-          {file.file_size && ` • ${formatFileSize(file.file_size)}`}
+        <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+          <span>
+            {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
+            {file.file_size && ` • ${formatFileSize(file.file_size)}`}
+          </span>
+          {/* Optimized indicator */}
+          {file.is_optimized && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-medium">Optimized</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  Image optimized for web
+                  {file.original_file_size && file.file_size && file.original_file_size > file.file_size && (
+                    <span className="block text-green-500">
+                      Saved {Math.round((1 - file.file_size / file.original_file_size) * 100)}% 
+                      ({formatFileSize(file.original_file_size)} → {formatFileSize(file.file_size)})
+                    </span>
+                  )}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         {/* External link indicator */}
