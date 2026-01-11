@@ -27,7 +27,8 @@ import {
   Palette,
   X,
   Link as LinkIcon,
-  Plus
+  Plus,
+  Package
 } from 'lucide-react';
 
 type FileCategory = 'documents' | 'images' | 'testimonials' | 'video' | 'brand' | 'content' | 'designs' | 'copy' | 'other';
@@ -83,6 +84,7 @@ const categories = [
   { value: 'designs', label: 'Design Files', icon: Palette },
   { value: 'testimonials', label: 'Testimonials', icon: Star },
   { value: 'video', label: 'Video', icon: Video },
+  { value: 'other', label: 'Other', icon: Package },
 ];
 
 const formatFileSize = (bytes: number | null) => {

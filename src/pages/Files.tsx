@@ -20,7 +20,6 @@ import {
   Image, 
   Video,
   Palette,
-  FileType,
   Package,
   Loader2,
   FolderOpen,
@@ -73,15 +72,12 @@ interface Project {
 }
 
 const categoryConfig: { value: FileCategory | 'all'; label: string; icon: React.ElementType }[] = [
-  { value: 'all', label: 'All Files', icon: Package },
-  { value: 'brand', label: 'Brand Assets', icon: Palette },
-  { value: 'designs', label: 'Designs', icon: Image },
-  { value: 'content', label: 'Content', icon: FileType },
-  { value: 'copy', label: 'Copy', icon: FileText },
-  { value: 'video', label: 'Video', icon: Video },
+  { value: 'all', label: 'All', icon: Package },
   { value: 'documents', label: 'Documents', icon: FileText },
   { value: 'images', label: 'Images', icon: Image },
-  { value: 'testimonials', label: 'Testimonials', icon: FileText },
+  { value: 'designs', label: 'Design Files', icon: Palette },
+  { value: 'testimonials', label: 'Testimonials', icon: Star },
+  { value: 'video', label: 'Video', icon: Video },
   { value: 'other', label: 'Other', icon: Package },
 ];
 
