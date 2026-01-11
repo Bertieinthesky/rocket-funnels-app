@@ -2,7 +2,6 @@ import { ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDemoMode } from '@/contexts/DemoModeContext';
-import funnelFuelLogo from '@/assets/funnel-fuel-logo.jpg';
 import { 
   Sidebar, 
   SidebarContent, 
@@ -127,12 +126,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar>
           <SidebarHeader className="border-b border-sidebar-border p-4">
             <div className="flex items-center gap-2">
-              <img 
-                src={funnelFuelLogo} 
-                alt="Funnel Fuel Logo" 
-                className="h-8 w-8 rounded-lg object-cover"
-              />
-              <span className="font-semibold text-lg">Funnel Fuel</span>
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-sm">CP</span>
+              </div>
+              <span className="font-semibold text-lg">Client Portal</span>
             </div>
           </SidebarHeader>
           
