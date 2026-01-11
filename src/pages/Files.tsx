@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileCard } from '@/components/files/FileCard';
 import { FlagModal } from '@/components/files/FlagModal';
 import { FlagResolveModal } from '@/components/files/FlagResolveModal';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Plus,
   FileText, 
@@ -22,7 +23,8 @@ import {
   Upload,
   Link as LinkIcon,
   Star,
-  Flag
+  Flag,
+  X
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -110,11 +112,15 @@ export default function Files() {
   
   // Upload modal
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadTab, setUploadTab] = useState<'upload' | 'link'>('upload');
-  const [uploadCategory, setUploadCategory] = useState<FileCategory>('other');
-  const [uploadProject, setUploadProject] = useState<string>('');
-  const [linkUrl, setLinkUrl] = useState('');
-  const [linkTitle, setLinkTitle] = useState('');
+  const [uploadMethod, setUploadMethod] = useState<'file' | 'link'>('file');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [externalLink, setExternalLink] = useState('');
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    category: 'other' as FileCategory,
+    project_id: '',
+    description: '',
+  });
   
   // Flag modals
   const [flagModalFile, setFlagModalFile] = useState<FileRecord | null>(null);
@@ -184,108 +190,118 @@ export default function Files() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || !companyId) return;
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Maximum file size is 50MB', variant: 'destructive' });
+      return;
+    }
+
+    setSelectedFile(file);
+    setUploadForm(prev => ({ ...prev, title: file.name.replace(/\.[^/.]+$/, '') }));
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const resetUploadModal = () => {
+    setShowUploadModal(false);
+    setSelectedFile(null);
+    setExternalLink('');
+    setUploadMethod('file');
+    setUploadForm({ title: '', category: 'other', project_id: '', description: '' });
+  };
+
+  const handleUpload = async () => {
+    const isLinkUpload = uploadMethod === 'link';
+    
+    if (isLinkUpload && !externalLink) {
+      toast({ title: 'Please enter a link', variant: 'destructive' });
+      return;
+    }
+    
+    if (!isLinkUpload && !selectedFile) {
+      toast({ title: 'Please select a file', variant: 'destructive' });
+      return;
+    }
+
+    if (!uploadForm.title) {
+      toast({ title: 'Please enter a title', variant: 'destructive' });
+      return;
+    }
+
+    if (!companyId) return;
 
     setUploading(true);
-    
     try {
-      for (const file of Array.from(selectedFiles)) {
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('portal-files')
-          .upload(filePath, file);
-        
-        if (uploadError) throw uploadError;
-        
-        const { data: urlData } = supabase.storage
-          .from('portal-files')
-          .getPublicUrl(filePath);
-        
+      if (isLinkUpload) {
+        // Add external link
+        const platform = detectPlatform(externalLink);
         const { error: dbError } = await supabase
           .from('files')
           .insert({
             company_id: companyId,
-            name: file.name,
-            file_url: urlData.publicUrl,
-            file_size: file.size,
-            mime_type: file.type,
-            category: uploadCategory,
+            name: uploadForm.title,
+            title: uploadForm.title,
+            description: uploadForm.description || null,
+            file_url: externalLink,
+            category: uploadForm.category,
+            project_id: uploadForm.project_id || null,
             uploaded_by: user?.id,
-            project_id: uploadProject && uploadProject !== 'none' ? uploadProject : null,
+            is_external_link: true,
+            external_platform: platform,
+          });
+
+        if (dbError) throw dbError;
+      } else {
+        // Upload file
+        const fileExt = selectedFile!.name.split('.').pop();
+        const filePath = `${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('portal-files')
+          .upload(filePath, selectedFile!);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('portal-files')
+          .getPublicUrl(filePath);
+
+        const { error: dbError } = await supabase
+          .from('files')
+          .insert({
+            company_id: companyId,
+            name: selectedFile!.name,
+            title: uploadForm.title,
+            description: uploadForm.description || null,
+            file_url: urlData.publicUrl,
+            file_size: selectedFile!.size,
+            mime_type: selectedFile!.type,
+            category: uploadForm.category,
+            project_id: uploadForm.project_id || null,
+            uploaded_by: user?.id,
             is_external_link: false,
           });
-        
+
         if (dbError) throw dbError;
       }
-      
-      toast({
-        title: 'Files uploaded!',
-        description: `Successfully uploaded ${selectedFiles.length} file(s)`,
-      });
-      
-      setShowUploadModal(false);
-      setUploadCategory('other');
-      setUploadProject('');
-      fetchData();
-    } catch (error: any) {
-      toast({
-        title: 'Upload failed',
-        description: error.message || 'Failed to upload files',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
-  const handleAddLink = async () => {
-    if (!linkUrl || !companyId) return;
-    
-    setUploading(true);
-    try {
-      const platform = detectPlatform(linkUrl);
-      const title = linkTitle || platform || 'External Link';
-      
-      const { error } = await supabase
-        .from('files')
-        .insert({
-          company_id: companyId,
-          name: title,
-          title: title,
-          file_url: linkUrl,
-          category: uploadCategory,
-          uploaded_by: user?.id,
-          project_id: uploadProject && uploadProject !== 'none' ? uploadProject : null,
-          is_external_link: true,
-          external_platform: platform,
-        });
-      
-      if (error) throw error;
-      
-      toast({
-        title: 'Link added!',
-        description: 'External link has been saved',
-      });
-      
-      setShowUploadModal(false);
-      setLinkUrl('');
-      setLinkTitle('');
-      setUploadCategory('other');
-      setUploadProject('');
+      toast({ title: isLinkUpload ? 'Link added successfully!' : 'File uploaded successfully!' });
+      resetUploadModal();
       fetchData();
     } catch (error: any) {
-      toast({
-        title: 'Failed to add link',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
     } finally {
       setUploading(false);
     }
@@ -684,148 +700,151 @@ export default function Files() {
       </div>
 
       {/* Upload Modal */}
-      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent>
+      <Dialog open={showUploadModal} onOpenChange={(open) => !open && resetUploadModal()}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add File</DialogTitle>
+            <DialogTitle>Add New File</DialogTitle>
           </DialogHeader>
           
-          <Tabs value={uploadTab} onValueChange={(v) => setUploadTab(v as 'upload' | 'link')}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="upload">
-                <Upload className="mr-2 h-4 w-4" />
-                Upload File
-              </TabsTrigger>
-              <TabsTrigger value="link">
-                <LinkIcon className="mr-2 h-4 w-4" />
-                Add Link
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="upload" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={uploadCategory} onValueChange={(v) => setUploadCategory(v as FileCategory)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryConfig.filter(c => c.value !== 'all').map(({ value, label }) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Project (optional)</Label>
-                <Select value={uploadProject} onValueChange={setUploadProject}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
-                    {projects.map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button 
-                className="w-full"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+          <div className="space-y-4">
+            {/* Category Selection */}
+            <div className="space-y-2">
+              <Label>Category*</Label>
+              <Select 
+                value={uploadForm.category} 
+                onValueChange={(v) => setUploadForm(prev => ({ ...prev, category: v as FileCategory }))}
               >
-                {uploading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryConfig.filter(c => c.value !== 'all').map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Upload Method Tabs */}
+            <Tabs value={uploadMethod} onValueChange={(v) => setUploadMethod(v as 'file' | 'link')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="file">Upload File</TabsTrigger>
+                <TabsTrigger value="link">Add Link</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="file" className="space-y-4 mt-4">
+                {!selectedFile ? (
+                  <div 
+                    className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground mb-2">Click to select file</p>
+                    <p className="text-xs text-muted-foreground">Max 50MB</p>
+                    <Button variant="outline" size="sm" className="mt-3">
+                      Select File
+                    </Button>
+                  </div>
                 ) : (
-                  <Upload className="mr-2 h-4 w-4" />
+                  <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
+                    <FileText className="h-8 w-8 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{selectedFile.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8"
+                      onClick={() => setSelectedFile(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 )}
-                Choose Files
-              </Button>
-            </TabsContent>
-            
-            <TabsContent value="link" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Link URL</Label>
-                <Input
-                  placeholder="https://docs.google.com/..."
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                />
-                {linkUrl && detectPlatform(linkUrl) && (
-                  <p className="text-sm text-muted-foreground">
-                    Detected: {detectPlatform(linkUrl)}
+              </TabsContent>
+
+              <TabsContent value="link" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>External Link*</Label>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="https://..."
+                      value={externalLink}
+                      onChange={(e) => setExternalLink(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Paste Google Docs, Sheets, Figma, YouTube, or any URL
                   </p>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Title (optional)</Label>
-                <Input
-                  placeholder="My Document"
-                  value={linkTitle}
-                  onChange={(e) => setLinkTitle(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={uploadCategory} onValueChange={(v) => setUploadCategory(v as FileCategory)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryConfig.filter(c => c.value !== 'all').map(({ value, label }) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Project (optional)</Label>
-                <Select value={uploadProject} onValueChange={setUploadProject}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
-                    {projects.map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <Button 
-                className="w-full"
-                onClick={handleAddLink}
-                disabled={uploading || !linkUrl}
-              >
-                {uploading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <LinkIcon className="mr-2 h-4 w-4" />
-                )}
-                Add Link
-              </Button>
-            </TabsContent>
-          </Tabs>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* Title & Project (shown when file selected or link entered) */}
+            {(selectedFile || (uploadMethod === 'link' && externalLink)) && (
+              <>
+                <div className="space-y-2">
+                  <Label>Title*</Label>
+                  <Input 
+                    value={uploadForm.title}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Enter file title"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Project</Label>
+                  <Select 
+                    value={uploadForm.project_id || '__global__'} 
+                    onValueChange={(v) => setUploadForm(prev => ({ ...prev, project_id: v === '__global__' ? '' : v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Global (All Projects)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__global__">Global (All Projects)</SelectItem>
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Description (Optional)</Label>
+                  <Textarea 
+                    value={uploadForm.description}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Add a description..."
+                    rows={3}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={resetUploadModal}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpload} disabled={uploading}>
+              {uploading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {uploadMethod === 'link' ? 'Add Link' : 'Upload File'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
 
       {/* Flag Modal */}
       <FlagModal
