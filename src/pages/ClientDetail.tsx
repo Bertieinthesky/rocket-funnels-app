@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CompanyInfoTab } from '@/components/client/CompanyInfoTab';
 import { ClientNotesTab } from '@/components/client/ClientNotesTab';
 import { FileManagerTab } from '@/components/client/FileManagerTab';
+import { ActionItemsTab } from '@/components/client/ActionItemsTab';
 import { HourTracker } from '@/components/client/HourTracker';
 import { 
   ArrowLeft, 
@@ -20,7 +21,8 @@ import {
   Settings,
   Plus,
   Building2,
-  StickyNote
+  StickyNote,
+  AlertCircle
 } from 'lucide-react';
 
 interface Company {
@@ -216,8 +218,12 @@ export default function ClientDetail() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="projects" className="space-y-4">
+        <Tabs defaultValue="action-items" className="space-y-4">
           <TabsList>
+            <TabsTrigger value="action-items" className="gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Action Items
+            </TabsTrigger>
             <TabsTrigger value="projects" className="gap-2">
               <FolderKanban className="h-4 w-4" />
               Projects ({projects.length})
@@ -235,6 +241,10 @@ export default function ClientDetail() {
               Files
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="action-items">
+            <ActionItemsTab companyId={company.id} />
+          </TabsContent>
 
           <TabsContent value="projects" className="space-y-4">
             <div className="flex justify-end">
