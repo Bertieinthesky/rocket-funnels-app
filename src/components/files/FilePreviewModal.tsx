@@ -109,28 +109,31 @@ export function FilePreviewModal({
           </Button>
         </div>
 
-        {/* Navigation arrows */}
+        {/* Navigation pill */}
         {showNavigation && (
-          <>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={onNavigatePrev}
-              disabled={!hasPrev}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-50 h-12 w-12 shadow-lg disabled:opacity-30"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={onNavigateNext}
-              disabled={!hasNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-50 h-12 w-12 shadow-lg disabled:opacity-30"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </Button>
-          </>
+          <div className="absolute bottom-6 right-6 z-50">
+            <div className="flex items-center bg-secondary/95 backdrop-blur-sm rounded-full shadow-lg border border-border/50">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onNavigatePrev}
+                disabled={!hasPrev}
+                className="h-10 w-10 rounded-l-full rounded-r-none hover:bg-muted disabled:opacity-30"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="w-px h-6 bg-border" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onNavigateNext}
+                disabled={!hasNext}
+                className="h-10 w-10 rounded-r-full rounded-l-none hover:bg-muted disabled:opacity-30"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* File title bar */}
