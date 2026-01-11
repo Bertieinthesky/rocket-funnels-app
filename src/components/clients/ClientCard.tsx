@@ -139,9 +139,21 @@ export function ClientCard({
   const RetainerIcon = retainerConfig.icon;
   const totalActionItems = action_items_for_us + action_items_for_client;
 
+  const hasUrgentItems = action_items_for_us > 0;
+
   return (
     <Link to={`/clients/${id}`}>
-      <Card className="group hover:shadow-lg hover:border-primary/30 transition-all duration-200 cursor-pointer h-full bg-card">
+      <Card className={cn(
+        "group hover:shadow-lg hover:border-primary/30 transition-all duration-200 cursor-pointer h-full bg-card relative",
+        hasUrgentItems && "ring-1 ring-red-500/20"
+      )}>
+        {/* Urgent indicator dot */}
+        {hasUrgentItems && (
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500"></span>
+          </span>
+        )}
         <CardContent className="p-5">
           {/* Header */}
           <div className="flex items-start gap-4 mb-4">
