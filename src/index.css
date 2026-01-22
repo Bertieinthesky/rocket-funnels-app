@@ -2,71 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-/* Glass Cockpit Design System
-   A technical, aerospace-inspired dark UI with glassmorphism and HUD elements.
-   All colors are in HSL format.
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    /* Glass Cockpit - Dark mode by default */
-    --background: 240 20% 6%;
-    --foreground: 210 40% 98%;
-
-    --card: 240 15% 10%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 240 15% 10%;
-    --popover-foreground: 210 40% 98%;
-
-    /* Electric Blue - Primary actions */
-    --primary: 220 80% 55%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 240 10% 15%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 240 10% 18%;
-    --muted-foreground: 215 20% 65%;
-
-    /* Cyan Tint - Accents */
-    --accent: 220 60% 25%;
-    --accent-foreground: 210 40% 98%;
-
-    /* Rose Red - Destructive/Blockers */
-    --destructive: 0 75% 50%;
-    --destructive-foreground: 210 40% 98%;
-
-    /* Amber - Spearhead/Command */
-    --spearhead: 40 90% 50%;
-    --spearhead-foreground: 240 20% 6%;
-
-    --border: 240 15% 20%;
-    --input: 240 15% 18%;
-    --ring: 220 80% 55%;
-
-    --radius: 0.5rem;
-
-    /* Sidebar - Darker variant */
-    --sidebar-background: 240 20% 5%;
-    --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 220 80% 55%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 240 10% 12%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 240 15% 15%;
-    --sidebar-ring: 220 80% 55%;
-
-    /* Glow effects */
-    --glow-primary: 220 80% 55%;
-    --glow-spearhead: 40 90% 50%;
-    --glow-destructive: 0 75% 50%;
-  }
-
-  /* Light mode - inverted for accessibility */
-  .light {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 
@@ -76,7 +17,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 220 80% 45%;
+    --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -91,21 +32,65 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --spearhead: 40 90% 45%;
-    --spearhead-foreground: 0 0% 100%;
-
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 220 80% 45%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
+
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 220 80% 45%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
     --sidebar-primary-foreground: 0 0% 98%;
+
     --sidebar-accent: 240 4.8% 95.9%;
+
     --sidebar-accent-foreground: 240 5.9% 10%;
+
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 220 80% 45%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -115,82 +100,6 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    /* Grid background texture - technical blueprint feel */
-    background-image: 
-      linear-gradient(to right, hsl(var(--border) / 0.3) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--border) / 0.3) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-
-  /* Technical typography for headers */
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-mono uppercase tracking-wider;
-  }
-
-  /* Data/ID styling */
-  code, .font-mono {
-    font-family: 'JetBrains Mono', monospace;
-  }
-}
-
-@layer utilities {
-  /* Glassmorphism utility */
-  .glass {
-    @apply bg-background/95 backdrop-blur-md border border-border/50;
-  }
-
-  /* HUD corner brackets */
-  .hud-corners {
-    @apply relative;
-  }
-  
-  .hud-corners::before,
-  .hud-corners::after {
-    content: '';
-    @apply absolute w-3 h-3 opacity-50 pointer-events-none;
-  }
-  
-  .hud-corners::before {
-    @apply top-0 left-0 border-t border-l border-primary/40;
-  }
-  
-  .hud-corners::after {
-    @apply top-0 right-0 border-t border-r border-primary/40;
-  }
-
-  /* Scanline hover effect */
-  .scanline-hover {
-    @apply relative overflow-hidden;
-  }
-  
-  .scanline-hover::after {
-    content: '';
-    @apply absolute inset-0 pointer-events-none opacity-0 transition-opacity;
-    background: linear-gradient(transparent 0%, rgba(255,255,255,0.02) 50%, transparent 100%);
-    background-size: 100% 4px;
-  }
-  
-  .scanline-hover:hover::after {
-    @apply opacity-100;
-  }
-
-  /* Glow effects */
-  .glow-primary {
-    box-shadow: 0 0 15px hsl(var(--primary) / 0.25), 0 0 30px hsl(var(--primary) / 0.1);
-  }
-
-  .glow-spearhead {
-    box-shadow: 0 0 15px hsl(var(--spearhead) / 0.25), 0 0 30px hsl(var(--spearhead) / 0.1);
-  }
-
-  .glow-destructive {
-    box-shadow: 0 0 15px hsl(var(--destructive) / 0.25), 0 0 30px hsl(var(--destructive) / 0.1);
-  }
-
-  /* Neon border glow on focus */
-  .neon-focus:focus-visible {
-    @apply outline-none ring-2 ring-primary/50;
-    box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
+    @apply bg-background text-foreground;
   }
 }
