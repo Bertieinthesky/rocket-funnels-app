@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -47,6 +51,11 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Glass Cockpit - Spearhead/Command amber color
+        spearhead: {
+          DEFAULT: "hsl(var(--spearhead))",
+          foreground: "hsl(var(--spearhead-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -80,10 +89,37 @@ export default {
             height: "0",
           },
         },
+        // Glass Cockpit - Pulse glow animation
+        "pulse-glow": {
+          "0%, 100%": {
+            opacity: "1",
+            boxShadow: "0 0 15px hsl(var(--primary) / 0.25)",
+          },
+          "50%": {
+            opacity: "0.8",
+            boxShadow: "0 0 25px hsl(var(--primary) / 0.4)",
+          },
+        },
+        // Scanline animation
+        scanline: {
+          "0%": {
+            transform: "translateY(-100%)",
+          },
+          "100%": {
+            transform: "translateY(100%)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        scanline: "scanline 3s linear infinite",
+      },
+      boxShadow: {
+        glow: "0 0 15px hsl(var(--primary) / 0.25), 0 0 30px hsl(var(--primary) / 0.1)",
+        "glow-spearhead": "0 0 15px hsl(var(--spearhead) / 0.25), 0 0 30px hsl(var(--spearhead) / 0.1)",
+        "glow-destructive": "0 0 15px hsl(var(--destructive) / 0.25), 0 0 30px hsl(var(--destructive) / 0.1)",
       },
     },
   },
