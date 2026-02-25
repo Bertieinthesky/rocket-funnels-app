@@ -100,6 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const teamNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/clients', icon: Building2, label: 'Clients' },
+    { to: '/projects', icon: FolderKanban, label: 'Campaigns' },
     { to: '/kanban', icon: Kanban, label: 'Kanban' },
     { to: '/action-items', icon: AlertCircle, label: 'Action Items' },
     { to: '/files', icon: FileText, label: 'Files' },
@@ -108,6 +109,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const adminNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/clients', icon: Building2, label: 'Clients' },
+    { to: '/projects', icon: FolderKanban, label: 'Campaigns' },
     { to: '/kanban', icon: Kanban, label: 'Kanban' },
     { to: '/action-items', icon: AlertCircle, label: 'Action Items' },
     { to: '/files', icon: FileText, label: 'Files' },
