@@ -26,7 +26,7 @@ ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Team and admin can do everything with tasks"
   ON tasks FOR ALL
-  USING (has_role('team', auth.uid()) OR has_role('admin', auth.uid()));
+  USING (has_role(auth.uid(), 'team') OR has_role(auth.uid(), 'admin'));
 
 CREATE POLICY "Clients can view tasks for their company projects"
   ON tasks FOR SELECT
@@ -42,4 +42,4 @@ CREATE POLICY "Clients can view tasks for their company projects"
 CREATE TRIGGER tasks_updated_at
   BEFORE UPDATE ON tasks
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at();
+  EXECUTE FUNCTION update_updated_at_column();
