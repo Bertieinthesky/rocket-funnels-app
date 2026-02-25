@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Loader2, Rocket } from 'lucide-react';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('Please enter a valid email address');
@@ -104,7 +104,7 @@ export default function Auth() {
         } else if (authMode === 'signup') {
           toast({
             title: 'Account created',
-            description: 'Welcome to the client portal!'
+            description: 'Welcome to Rocket Funnels!'
           });
         }
       }
@@ -136,13 +136,20 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Client Portal</CardTitle>
-          <CardDescription>
-            {authMode === 'login' && 'Welcome back! Sign in to your account.'}
-            {authMode === 'signup' && 'Create your account to get started.'}
-            {authMode === 'magic' && 'Sign in with a magic link sent to your email.'}
-          </CardDescription>
+        <CardHeader className="text-center space-y-3">
+          <div className="flex justify-center">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <Rocket className="h-6 w-6 text-white -rotate-45" />
+            </div>
+          </div>
+          <div>
+            <CardTitle className="text-2xl font-bold tracking-tight">Rocket Funnels</CardTitle>
+            <CardDescription className="mt-1">
+              {authMode === 'login' && 'Welcome back! Sign in to your account.'}
+              {authMode === 'signup' && 'Create your account to get started.'}
+              {authMode === 'magic' && 'Sign in with a magic link sent to your email.'}
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as typeof authMode)}>

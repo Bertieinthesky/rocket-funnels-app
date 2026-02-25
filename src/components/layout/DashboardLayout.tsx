@@ -2,10 +2,10 @@ import { ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDemoMode } from '@/contexts/DemoModeContext';
-import { 
-  Sidebar, 
-  SidebarContent, 
-  SidebarFooter, 
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -37,7 +37,8 @@ import {
   Kanban,
   Loader2,
   Eye,
-  AlertCircle
+  AlertCircle,
+  Rocket,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -127,42 +128,49 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <Sidebar>
-          <SidebarHeader className="border-b border-sidebar-border p-4">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">RF</span>
+          {/* Branded header */}
+          <SidebarHeader className="relative border-b border-sidebar-border px-4 py-5">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                <Rocket className="h-5 w-5 text-white -rotate-45" />
               </div>
-              <span className="font-semibold text-lg">Rocket Funnels</span>
+              <div>
+                <span className="font-semibold text-[15px] tracking-tight text-sidebar-accent-foreground">
+                  Rocket Funnels
+                </span>
+              </div>
             </div>
           </SidebarHeader>
-          
-          <SidebarContent className="p-2">
-            <SidebarMenu>
+
+          {/* Navigation */}
+          <SidebarContent className="px-3 py-4">
+            <SidebarMenu className="space-y-0.5">
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
+                    <NavLink
                       to={item.to}
-                      className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                      className="relative flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-white/[0.06]"
+                      activeClassName="text-sidebar-accent-foreground bg-white/[0.08] before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-0.5 before:rounded-full before:bg-orange-500"
                     >
                       <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
+                      <span className="text-sm">{item.label}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarContent>
-          
+
           <SidebarFooter className="border-t border-sidebar-border p-4 space-y-4">
             {/* Demo Mode Toggle - Only for Admins */}
             {canUseDemoMode && (
-              <div className="rounded-lg border border-dashed border-primary/50 bg-primary/5 p-3 space-y-3">
+              <div className="rounded-lg border border-orange-500/20 bg-orange-500/[0.06] p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-primary" />
-                    <Label htmlFor="demo-mode" className="text-sm font-medium">
+                    <Eye className="h-4 w-4 text-orange-400" />
+                    <Label htmlFor="demo-mode" className="text-sm font-medium text-sidebar-accent-foreground">
                       Demo Mode
                     </Label>
                   </div>
@@ -172,10 +180,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     onCheckedChange={toggleDemoMode}
                   />
                 </div>
-                
+
                 {isDemoMode && (
                   <Select value={demoView} onValueChange={(v) => setDemoView(v as 'admin' | 'team' | 'client')}>
-                    <SelectTrigger className="w-full h-8 text-xs">
+                    <SelectTrigger className="w-full h-8 text-xs bg-white/[0.06] border-sidebar-border text-sidebar-accent-foreground">
                       <SelectValue placeholder="Select view" />
                     </SelectTrigger>
                     <SelectContent>
@@ -190,40 +198,45 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* User Info */}
             <div className="flex items-center gap-3">
-              <Avatar className="h-9 w-9">
+              <Avatar className="h-9 w-9 ring-2 ring-white/10">
                 <AvatarImage src="" />
-                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white text-sm font-medium">
                   {getInitials(user.user_metadata?.full_name, user.email)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
+                <p className="text-sm font-medium truncate text-sidebar-accent-foreground">
                   {user.user_metadata?.full_name || user.email}
                 </p>
                 <div className="flex items-center gap-1">
                   {isDemoMode ? (
-                    <Badge variant="outline" className="text-xs border-primary text-primary">
+                    <Badge variant="outline" className="text-[10px] border-orange-500/40 text-orange-400">
                       {getRoleLabel()}
                     </Badge>
                   ) : (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-sidebar-foreground/60">
                       {getRoleLabel()}
                     </p>
                   )}
                 </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={handleSignOut}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSignOut}
+                className="text-sidebar-foreground/50 hover:text-sidebar-accent-foreground hover:bg-white/[0.06]"
+              >
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </SidebarFooter>
         </Sidebar>
-        
+
         <SidebarInset className="flex-1">
           <header className="flex h-14 items-center gap-4 border-b bg-background px-6">
             <SidebarTrigger />
             {isDemoMode && (
-              <Badge variant="outline" className="border-primary text-primary">
+              <Badge variant="outline" className="border-orange-500/40 text-orange-600">
                 <Eye className="h-3 w-3 mr-1" />
                 Viewing as {demoView}
               </Badge>
