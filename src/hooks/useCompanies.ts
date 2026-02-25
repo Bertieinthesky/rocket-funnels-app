@@ -93,6 +93,35 @@ export function useCompanyWithStats(id: string | undefined) {
   });
 }
 
+export function useCreateCompany() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (company: {
+      name: string;
+      retainer_type: 'unlimited' | 'hourly' | 'one_time';
+      contact_email?: string;
+      billing_email?: string;
+      poc_name?: string;
+      company_website?: string;
+      hours_allocated?: number;
+      hourly_rate?: number;
+      payment_schedule?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('companies')
+        .insert(company)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+    },
+  });
+}
+
 export function useUpdateCompany() {
   const queryClient = useQueryClient();
 

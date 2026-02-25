@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -8,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ClientCard } from '@/components/clients/ClientCard';
-import { Search, Building2, Plus, Archive, Power, PowerOff } from 'lucide-react';
+import { AddClientDialog } from '@/components/clients/AddClientDialog';
+import { Search, Building2, Archive, Power, PowerOff } from 'lucide-react';
 
 type LifecycleFilter = 'active' | 'inactive' | 'archived';
 type RetainerFilter = 'all' | 'retainer' | 'one_time';
@@ -157,14 +157,7 @@ export default function Clients() {
             <h1 className="text-2xl font-semibold">Clients</h1>
             <p className="text-sm text-muted-foreground">Manage your client accounts</p>
           </div>
-          {isAdmin && (
-            <Button asChild>
-              <Link to="/clients/new">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Client
-              </Link>
-            </Button>
-          )}
+          {isAdmin && <AddClientDialog />}
         </div>
 
         {/* Lifecycle tabs */}
