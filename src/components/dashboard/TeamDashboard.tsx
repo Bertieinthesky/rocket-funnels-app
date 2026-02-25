@@ -88,7 +88,7 @@ export function TeamDashboard() {
 
   const stats: StatItem[] = [
     {
-      label: 'My Projects',
+      label: 'My Campaigns',
       value: myProjects.length,
       icon: FolderKanban,
     },
@@ -130,7 +130,7 @@ export function TeamDashboard() {
             <CardContent className="pt-0">
               {sortedTasks.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground/60 text-xs">
-                  No projects assigned
+                  No campaigns assigned
                 </div>
               ) : (
                 <div className="space-y-1">

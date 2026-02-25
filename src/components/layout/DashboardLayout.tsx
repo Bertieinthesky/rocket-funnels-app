@@ -92,7 +92,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Navigation items based on role
   const clientNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/projects', icon: FolderKanban, label: 'Projects' },
+    { to: '/projects', icon: FolderKanban, label: 'Campaigns' },
     { to: '/files', icon: FileText, label: 'Files' },
   ];
 
@@ -130,9 +130,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <SidebarHeader className="border-b border-sidebar-border p-4">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">CP</span>
+                <span className="text-primary-foreground font-bold text-sm">RF</span>
               </div>
-              <span className="font-semibold text-lg">Client Portal</span>
+              <span className="font-semibold text-lg">Rocket Funnels</span>
             </div>
           </SidebarHeader>
           

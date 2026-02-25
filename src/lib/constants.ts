@@ -158,6 +158,58 @@ export const STATUS_ORDER: ProjectStatus[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Task Statuses — Kanban columns for individual tasks
+// ---------------------------------------------------------------------------
+
+export type TaskStatus = 'todo' | 'in_progress' | 'blocked' | 'review' | 'done';
+
+export const TASK_STATUSES: Record<TaskStatus, StatusConfig> = {
+  todo: {
+    label: 'To Do',
+    color: 'bg-muted text-muted-foreground',
+    columnColor: 'bg-muted',
+    icon: Circle,
+    order: 0,
+  },
+  in_progress: {
+    label: 'In Progress',
+    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    columnColor: 'bg-blue-50 dark:bg-blue-900/20',
+    icon: Play,
+    order: 1,
+  },
+  blocked: {
+    label: 'Blocked',
+    color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    columnColor: 'bg-red-50 dark:bg-red-900/20',
+    icon: Ban,
+    order: 2,
+  },
+  review: {
+    label: 'Review',
+    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    columnColor: 'bg-orange-50 dark:bg-orange-900/20',
+    icon: Eye,
+    order: 3,
+  },
+  done: {
+    label: 'Done',
+    color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    columnColor: 'bg-green-50 dark:bg-green-900/20',
+    icon: CheckCircle2,
+    order: 4,
+  },
+};
+
+export const TASK_STATUS_ORDER: TaskStatus[] = [
+  'todo',
+  'in_progress',
+  'blocked',
+  'review',
+  'done',
+];
+
+// ---------------------------------------------------------------------------
 // Project Types
 // ---------------------------------------------------------------------------
 

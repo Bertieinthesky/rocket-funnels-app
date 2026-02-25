@@ -207,15 +207,15 @@ function AdminBriefForm() {
       {
         onSuccess: (data) => {
           toast({
-            title: 'Project created',
-            description: `"${form.name}" has been added to the board.`,
+            title: 'Campaign created',
+            description: `"${form.name}" campaign has been added.`,
           });
           navigate(`/projects/${data.id}`);
         },
         onError: (error) => {
           toast({
             title: 'Error',
-            description: error.message || 'Failed to create project',
+            description: error.message || 'Failed to create campaign',
             variant: 'destructive',
           });
         },
@@ -238,9 +238,9 @@ function AdminBriefForm() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-semibold">New Project Brief</h1>
+          <h1 className="text-xl font-semibold">New Campaign Brief</h1>
           <p className="text-sm text-muted-foreground">
-            Set up a new project for a client.
+            Set up a new campaign for a client.
           </p>
         </div>
       </div>

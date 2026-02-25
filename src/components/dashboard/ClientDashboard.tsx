@@ -82,7 +82,7 @@ export function ClientDashboard() {
             Welcome back{firstName ? `, ${firstName}` : ''}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Here's what's happening with your projects.
+            Here's what's happening with your campaigns.
           </p>
         </div>
         <div className="flex gap-2">
@@ -167,7 +167,7 @@ export function ClientDashboard() {
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-semibold">Active Projects</CardTitle>
+                <CardTitle className="text-sm font-semibold">Active Campaigns</CardTitle>
                 <Badge variant="secondary" className="text-[10px] h-5 tabular-nums">
                   {activeProjects.length}
                 </Badge>
@@ -182,7 +182,7 @@ export function ClientDashboard() {
               {activeProjects.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/60">
                   <FolderKanban className="h-8 w-8 mb-2" />
-                  <p className="text-xs">No active projects</p>
+                  <p className="text-xs">No active campaigns</p>
                   <Button size="sm" className="mt-3" asChild>
                     <Link to="/projects/new">
                       <Plus className="mr-1.5 h-3.5 w-3.5" />

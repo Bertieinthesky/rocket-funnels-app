@@ -633,6 +633,59 @@ export type Database = {
         }
         Relationships: []
       }
+      tasks: {
+        Row: {
+          id: string
+          project_id: string
+          title: string
+          description: string | null
+          status: string
+          priority: string
+          assigned_to: string | null
+          due_date: string | null
+          sort_order: number
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          title: string
+          description?: string | null
+          status?: string
+          priority?: string
+          assigned_to?: string | null
+          due_date?: string | null
+          sort_order?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          title?: string
+          description?: string | null
+          status?: string
+          priority?: string
+          assigned_to?: string | null
+          due_date?: string | null
+          sort_order?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

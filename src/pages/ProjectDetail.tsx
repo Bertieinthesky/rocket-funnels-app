@@ -15,6 +15,7 @@ import { TeamUpdateForm } from '@/components/project/TeamUpdateForm';
 import { MessageThread } from '@/components/project/MessageThread';
 import { BlockDialog } from '@/components/project/BlockDialog';
 import { PhaseAdvancer } from '@/components/project/PhaseAdvancer';
+import { TaskList } from '@/components/tasks/TaskList';
 import {
   PHASES,
   STATUSES,
@@ -309,9 +310,9 @@ export default function ProjectDetail() {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Project not found</p>
+          <p className="text-muted-foreground">Campaign not found</p>
           <Button className="mt-4" onClick={() => navigate('/projects')}>
-            Back to Projects
+            Back to Campaigns
           </Button>
         </div>
       </DashboardLayout>
@@ -441,6 +442,9 @@ export default function ProjectDetail() {
             </CardContent>
           </Card>
         )}
+
+        {/* Tasks */}
+        <TaskList projectId={project.id} canEdit={canPostUpdates} />
 
         {/* Messaging Tabs */}
         <Card>

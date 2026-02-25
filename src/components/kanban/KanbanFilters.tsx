@@ -8,12 +8,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import {
-  PHASES,
-  PHASE_ORDER,
-  PROJECT_TYPES,
   PRIORITIES,
-  type WorkflowPhase,
-  type ProjectType,
   type Priority,
 } from '@/lib/constants';
 import type { Company } from '@/hooks/useCompanies';
@@ -22,36 +17,41 @@ import { X, SlidersHorizontal, OctagonAlert } from 'lucide-react';
 
 export interface KanbanFilterState {
   client: string;
-  phase: string;
-  type: string;
+  campaign: string;
   priority: string;
   assignedTo: string;
   blockedOnly: boolean;
   showCompleted: boolean;
 }
 
+interface Campaign {
+  id: string;
+  name: string;
+}
+
 interface KanbanFiltersProps {
   filters: KanbanFilterState;
   onChange: (filters: KanbanFilterState) => void;
   companies: Company[];
+  campaigns: Campaign[];
   teamMembers: TeamMember[];
-  projectCount: number;
+  taskCount: number;
 }
 
 export function KanbanFilters({
   filters,
   onChange,
   companies,
+  campaigns,
   teamMembers,
-  projectCount,
+  taskCount,
 }: KanbanFiltersProps) {
   const set = (key: keyof KanbanFilterState, value: string | boolean) =>
     onChange({ ...filters, [key]: value });
 
   const hasActive =
     filters.client !== 'all' ||
-    filters.phase !== 'all' ||
-    filters.type !== 'all' ||
+    filters.campaign !== 'all' ||
     filters.priority !== 'all' ||
     filters.assignedTo !== 'all' ||
     filters.blockedOnly;
@@ -59,8 +59,7 @@ export function KanbanFilters({
   const clearAll = () =>
     onChange({
       client: 'all',
-      phase: 'all',
-      type: 'all',
+      campaign: 'all',
       priority: 'all',
       assignedTo: 'all',
       blockedOnly: false,
@@ -89,31 +88,16 @@ export function KanbanFilters({
         </SelectContent>
       </Select>
 
-      {/* Phase */}
-      <Select value={filters.phase} onValueChange={(v) => set('phase', v)}>
-        <SelectTrigger className="h-8 w-[140px] text-xs bg-background">
-          <SelectValue placeholder="All Phases" />
+      {/* Campaign */}
+      <Select value={filters.campaign} onValueChange={(v) => set('campaign', v)}>
+        <SelectTrigger className="h-8 w-[160px] text-xs bg-background">
+          <SelectValue placeholder="All Campaigns" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Phases</SelectItem>
-          {PHASE_ORDER.map((key) => (
-            <SelectItem key={key} value={key}>
-              {PHASES[key].label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Type */}
-      <Select value={filters.type} onValueChange={(v) => set('type', v)}>
-        <SelectTrigger className="h-8 w-[130px] text-xs bg-background">
-          <SelectValue placeholder="All Types" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
-          {(Object.keys(PROJECT_TYPES) as ProjectType[]).map((key) => (
-            <SelectItem key={key} value={key}>
-              {PROJECT_TYPES[key].label}
+          <SelectItem value="all">All Campaigns</SelectItem>
+          {campaigns.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
             </SelectItem>
           ))}
         </SelectContent>
@@ -170,7 +154,7 @@ export function KanbanFilters({
         className="h-8 text-xs"
         onClick={() => set('showCompleted', !filters.showCompleted)}
       >
-        {filters.showCompleted ? 'Hide Completed' : 'Show Completed'}
+        {filters.showCompleted ? 'Hide Done' : 'Show Done'}
       </Button>
 
       {/* Clear */}
@@ -189,7 +173,7 @@ export function KanbanFilters({
       {/* Count */}
       <div className="ml-auto">
         <Badge variant="secondary" className="text-xs font-mono tabular-nums">
-          {projectCount} project{projectCount !== 1 ? 's' : ''}
+          {taskCount} task{taskCount !== 1 ? 's' : ''}
         </Badge>
       </div>
     </div>

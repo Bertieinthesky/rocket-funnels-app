@@ -64,7 +64,7 @@ export function AdminDashboard() {
 
   const stats: StatItem[] = [
     {
-      label: 'Active Projects',
+      label: 'Active Campaigns',
       value: activeProjects.length,
       icon: FolderKanban,
     },

@@ -148,9 +148,9 @@ export default function Projects() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Projects</h1>
+            <h1 className="text-2xl font-bold">Campaigns</h1>
             <p className="text-muted-foreground">
-              Manage and track all your projects
+              Manage and track all your campaigns
             </p>
           </div>
           
@@ -158,7 +158,7 @@ export default function Projects() {
             <Button asChild>
               <Link to="/projects/new">
                 <Plus className="mr-2 h-4 w-4" />
-                New Project
+                New Campaign
               </Link>
             </Button>
           )}
@@ -178,7 +178,7 @@ export default function Projects() {
             {activeProjects.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground mb-4">No active projects</p>
+                  <p className="text-muted-foreground mb-4">No active campaigns</p>
                   {isClient && (
                     <Button asChild>
                       <Link to="/projects/new">
@@ -202,7 +202,7 @@ export default function Projects() {
             {completedProjects.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No completed projects yet
+                  No completed campaigns yet
                 </CardContent>
               </Card>
             ) : (
