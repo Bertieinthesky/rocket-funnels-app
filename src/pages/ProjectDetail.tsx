@@ -1,305 +1,289 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useProject, useUpdateProject } from '@/hooks/useProjects';
+import { useUpdates, useCreateUpdate, useUpdateUpdate } from '@/hooks/useUpdates';
 import { ChangeRequestModal } from '@/components/project/ChangeRequestModal';
 import { TeamUpdateForm } from '@/components/project/TeamUpdateForm';
-import { 
-  ArrowLeft, 
-  AlertCircle, 
-  CheckCircle2, 
+import { MessageThread } from '@/components/project/MessageThread';
+import { BlockDialog } from '@/components/project/BlockDialog';
+import { PhaseAdvancer } from '@/components/project/PhaseAdvancer';
+import {
+  PHASES,
+  STATUSES,
+  PRIORITIES,
+  type WorkflowPhase,
+  type ProjectStatus,
+  type Priority,
+} from '@/lib/constants';
+import {
+  ArrowLeft,
+  AlertCircle,
+  CheckCircle2,
   XCircle,
   Clock,
   FileText,
   Loader2,
   ExternalLink,
   Video,
-  Edit2
+  Edit2,
+  MessageSquare,
+  StickyNote,
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-interface Project {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
-  is_blocked: boolean;
-  blocked_reason: string | null;
-  project_type: string;
-  target_date: string | null;
-  created_at: string;
-}
-
-interface Update {
-  id: string;
-  content: string;
-  is_deliverable: boolean;
-  is_approved: boolean | null;
-  hours_logged: number | null;
-  created_at: string;
-  author_id: string | null;
-  author_name?: string | null;
-  author_email?: string | null;
-  change_request_text?: string | null;
-  change_request_link?: string | null;
-  change_request_link_type?: string | null;
-  change_request_draft?: boolean | null;
-  change_request_submitted_at?: string | null;
-}
-
-const statusColors: Record<string, string> = {
-  queued: 'bg-muted text-muted-foreground',
-  in_progress: 'bg-primary/10 text-primary',
-  revision: 'bg-warning/10 text-warning',
-  review: 'bg-success/10 text-success',
-  complete: 'bg-success text-success-foreground',
-};
-
-const statusLabels: Record<string, string> = {
-  queued: 'Queued',
-  in_progress: 'In Progress',
-  revision: 'Revision',
-  review: 'Review',
-  complete: 'Complete',
-};
-
-const statusOrder = ['queued', 'in_progress', 'revision', 'review', 'complete'];
+import type { Update } from '@/hooks/useUpdates';
 
 const getLinkIcon = (type: string | null) => {
-  if (type === 'loom' || type === 'youtube' || type === 'vimeo') {
-    return Video;
-  }
+  if (type === 'loom' || type === 'youtube' || type === 'vimeo') return Video;
   return FileText;
 };
+
+function getInitials(name?: string | null, email?: string | null): string {
+  if (name) {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }
+  return email?.slice(0, 2).toUpperCase() || 'U';
+}
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isClient, isTeam, isAdmin } = useAuth();
   const { toast } = useToast();
-  
-  const [project, setProject] = useState<Project | null>(null);
-  const [updates, setUpdates] = useState<Update[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // React Query
+  const { data: project, isLoading: projectLoading } = useProject(id);
+  const { data: updates = [] } = useUpdates(id);
+  const updateProject = useUpdateProject();
+  const createUpdate = useCreateUpdate();
+  const updateUpdate = useUpdateUpdate();
+
+  // Local state
   const [approving, setApproving] = useState<string | null>(null);
-  const [submittingChangeRequest, setSubmittingChangeRequest] = useState(false);
-  
-  // Change request modal
   const [changeRequestUpdate, setChangeRequestUpdate] = useState<Update | null>(null);
 
   const canPostUpdates = isTeam || isAdmin;
 
-  useEffect(() => {
-    if (id) {
-      fetchProjectData();
-    }
-  }, [id]);
+  // ── Handlers ─────────────────────────────────────────────────────────────
 
-  const fetchProjectData = async () => {
-    try {
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (projectError) throw projectError;
-      setProject(projectData);
+  const handleBlock = (reason: string, notify: boolean) => {
+    if (!project) return;
+    updateProject.mutate(
+      { id: project.id, is_blocked: true, blocked_reason: reason },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Project blocked',
+            description: notify ? 'Client will be notified.' : undefined,
+          });
+        },
+      },
+    );
+  };
 
-      const { data: updatesData } = await supabase
-        .from('updates')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: false });
-      
-      // Fetch author info for each update
-      const updatesWithAuthors = await Promise.all(
-        (updatesData || []).map(async (update) => {
-          if (update.author_id) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('full_name, email')
-              .eq('id', update.author_id)
-              .single();
-            return {
-              ...update,
-              author_name: profile?.full_name,
-              author_email: profile?.email
-            };
-          }
-          return update;
-        })
-      );
-      
-      setUpdates(updatesWithAuthors);
-    } catch (error) {
-      console.error('Error fetching project:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load project',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
+  const handleUnblock = () => {
+    if (!project) return;
+    updateProject.mutate(
+      { id: project.id, is_blocked: false, blocked_reason: null },
+      {
+        onSuccess: () => {
+          toast({ title: 'Project unblocked' });
+        },
+      },
+    );
+  };
+
+  const handleAdvancePhase = (nextPhase: WorkflowPhase) => {
+    if (!project) return;
+    const phaseConfig = PHASES[nextPhase];
+    const dueDate = phaseConfig.defaultDays
+      ? new Date(Date.now() + phaseConfig.defaultDays * 86400000).toISOString().split('T')[0]
+      : null;
+
+    updateProject.mutate(
+      {
+        id: project.id,
+        phase: nextPhase as any,
+        phase_started_at: new Date().toISOString(),
+        phase_due_date: dueDate,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: `Phase advanced to ${phaseConfig.label}` });
+        },
+      },
+    );
+  };
+
+  const handleChangePhase = (phase: WorkflowPhase) => {
+    if (!project) return;
+    updateProject.mutate(
+      {
+        id: project.id,
+        phase: phase as any,
+        phase_started_at: new Date().toISOString(),
+      },
+      {
+        onSuccess: () => {
+          toast({ title: `Phase changed to ${PHASES[phase].label}` });
+        },
+      },
+    );
   };
 
   const handleApproveDeliverable = async (updateId: string) => {
-    // Prevent double-submission
     if (approving) return;
     setApproving(updateId);
-    
-    try {
-      const { error } = await supabase
-        .from('updates')
-        .update({ 
-          is_approved: true,
-          change_request_text: null,
-          change_request_link: null,
-          change_request_link_type: null,
-          change_request_draft: false,
-          change_request_submitted_at: null,
-        })
-        .eq('id', updateId);
-      
-      if (error) throw error;
-      
-      await fetchProjectData();
-      
-      toast({
-        title: 'Deliverable approved!',
-        description: 'Great! The team will continue with the next step.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update deliverable',
-        variant: 'destructive',
-      });
-    } finally {
-      setApproving(null);
-    }
+
+    updateUpdate.mutate(
+      {
+        id: updateId,
+        is_approved: true,
+        change_request_text: null,
+        change_request_link: null,
+        change_request_link_type: null,
+        change_request_draft: false,
+        change_request_submitted_at: null,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Deliverable approved!',
+            description: 'The team will continue with the next step.',
+          });
+          setApproving(null);
+        },
+        onError: () => {
+          toast({
+            title: 'Error',
+            description: 'Failed to approve deliverable',
+            variant: 'destructive',
+          });
+          setApproving(null);
+        },
+      },
+    );
   };
 
-  const handleSaveChangeRequestDraft = async (text: string, link: string, linkType: string | null) => {
-    if (!changeRequestUpdate || submittingChangeRequest) return;
-    setSubmittingChangeRequest(true);
-    
-    try {
-      const { error } = await supabase
-        .from('updates')
-        .update({
-          change_request_text: text || null,
-          change_request_link: link || null,
-          change_request_link_type: linkType,
-          change_request_draft: true,
-          is_approved: null, // Keep as pending while drafting
-        })
-        .eq('id', changeRequestUpdate.id);
-      
-      if (error) throw error;
-      
-      await fetchProjectData();
-      
-      toast({
-        title: 'Draft saved',
-        description: 'Your change request has been saved as a draft.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save draft',
-        variant: 'destructive',
-      });
-    } finally {
-      setSubmittingChangeRequest(false);
-    }
+  const handleSaveChangeRequestDraft = async (
+    text: string,
+    link: string,
+    linkType: string | null,
+  ) => {
+    if (!changeRequestUpdate) return;
+
+    updateUpdate.mutate(
+      {
+        id: changeRequestUpdate.id,
+        change_request_text: text || null,
+        change_request_link: link || null,
+        change_request_link_type: linkType,
+        change_request_draft: true,
+        is_approved: null,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: 'Draft saved' });
+        },
+        onError: () => {
+          toast({
+            title: 'Error',
+            description: 'Failed to save draft',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
   };
 
-  const handleSubmitChangeRequest = async (text: string, link: string, linkType: string | null) => {
-    if (!changeRequestUpdate || submittingChangeRequest) return;
-    setSubmittingChangeRequest(true);
-    
-    try {
-      const { error } = await supabase
-        .from('updates')
-        .update({
-          is_approved: false,
-          change_request_text: text || null,
-          change_request_link: link || null,
-          change_request_link_type: linkType,
-          change_request_draft: false,
-          change_request_submitted_at: new Date().toISOString(),
-        })
-        .eq('id', changeRequestUpdate.id);
-      
-      if (error) throw error;
-      
-      await fetchProjectData();
-      
-      toast({
-        title: 'Changes requested',
-        description: 'Your feedback has been submitted to the team.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to submit change request',
-        variant: 'destructive',
-      });
-    } finally {
-      setSubmittingChangeRequest(false);
-    }
+  const handleSubmitChangeRequest = async (
+    text: string,
+    link: string,
+    linkType: string | null,
+  ) => {
+    if (!changeRequestUpdate) return;
+
+    updateUpdate.mutate(
+      {
+        id: changeRequestUpdate.id,
+        is_approved: false,
+        change_request_text: text || null,
+        change_request_link: link || null,
+        change_request_link_type: linkType,
+        change_request_draft: false,
+        change_request_submitted_at: new Date().toISOString(),
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Changes requested',
+            description: 'Your feedback has been submitted to the team.',
+          });
+          setChangeRequestUpdate(null);
+        },
+        onError: () => {
+          toast({
+            title: 'Error',
+            description: 'Failed to submit change request',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
   };
 
-  const handlePostUpdate = async (content: string, isDeliverable: boolean, hoursLogged: number | null) => {
+  const handlePostUpdate = async (
+    content: string,
+    isDeliverable: boolean,
+    hoursLogged: number | null,
+  ) => {
     if (!project || !user) return;
-    
-    try {
-      const { error } = await supabase
-        .from('updates')
-        .insert({
-          project_id: project.id,
-          author_id: user.id,
-          content,
-          is_deliverable: isDeliverable,
-          hours_logged: hoursLogged,
-        });
-      
-      if (error) throw error;
-      
-      await fetchProjectData();
-      
-      toast({
-        title: isDeliverable ? 'Deliverable submitted!' : 'Update posted!',
-        description: isDeliverable 
-          ? 'The client will be notified to review.' 
-          : 'Your update has been added to the activity feed.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to post update',
-        variant: 'destructive',
-      });
-    }
-  };
 
-  const getInitials = (name?: string | null, email?: string | null) => {
-    if (name) {
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    }
-    return email?.slice(0, 2).toUpperCase() || 'U';
+    createUpdate.mutate(
+      {
+        project_id: project.id,
+        author_id: user.id,
+        content,
+        is_deliverable: isDeliverable,
+        hours_logged: hoursLogged,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: isDeliverable ? 'Deliverable submitted!' : 'Update posted!',
+            description: isDeliverable
+              ? 'The client will be notified to review.'
+              : 'Your update has been added to the activity feed.',
+          });
+        },
+        onError: () => {
+          toast({
+            title: 'Error',
+            description: 'Failed to post update',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
   };
 
   const getExistingDraft = (update: Update) => {
-    if (update.change_request_draft && (update.change_request_text || update.change_request_link)) {
+    if (
+      update.change_request_draft &&
+      (update.change_request_text || update.change_request_link)
+    ) {
       return {
         text: update.change_request_text || '',
         link: update.change_request_link || '',
@@ -309,7 +293,9 @@ export default function ProjectDetail() {
     return null;
   };
 
-  if (loading) {
+  // ── Guards ───────────────────────────────────────────────────────────────
+
+  if (projectLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
@@ -332,25 +318,69 @@ export default function ProjectDetail() {
     );
   }
 
-  const currentStatusIndex = statusOrder.indexOf(project.status);
+  const phase = PHASES[project.phase as WorkflowPhase] || PHASES.shaping;
+  const PhaseIcon = phase.icon;
+  const status =
+    STATUSES[
+      (project.status === 'revision' ? 'in_progress' : project.status) as ProjectStatus
+    ] || STATUSES.queued;
+  const StatusIcon = status.icon;
+  const priority = PRIORITIES[(project.priority as Priority) || 'normal'];
+
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <DashboardLayout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-5">
         {/* Header */}
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+        <div className="flex items-start gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 mt-0.5"
+            onClick={() => navigate(-1)}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold">{project.name}</h1>
-              <Badge className={statusColors[project.status]}>
-                {statusLabels[project.status]}
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-semibold tracking-tight truncate">
+                {project.name}
+              </h1>
+
+              {/* Priority dot */}
+              <span className={`h-2 w-2 rounded-full shrink-0 ${priority.dotColor}`} />
+
+              {/* Status badge */}
+              <Badge
+                variant="secondary"
+                className={`text-[10px] h-5 px-1.5 gap-1 font-medium ${status.color}`}
+              >
+                <StatusIcon className="h-3 w-3" />
+                {status.label}
               </Badge>
+
+              {/* Phase badge */}
+              <Badge
+                variant="secondary"
+                className={`text-[10px] h-5 px-1.5 gap-1 font-medium ${phase.color}`}
+              >
+                <PhaseIcon className="h-3 w-3" />
+                {phase.label}
+              </Badge>
+
+              {project.is_blocked && (
+                <Badge variant="destructive" className="text-[10px] h-5 px-1.5 gap-1">
+                  Blocked
+                </Badge>
+              )}
             </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Badge variant="outline" className="capitalize">{project.project_type}</Badge>
+
+            <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+              {project.company_name && (
+                <span>{project.company_name}</span>
+              )}
               {project.target_date && (
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -359,157 +389,192 @@ export default function ProjectDetail() {
               )}
             </div>
           </div>
+
+          {/* Block/Unblock — team/admin only */}
+          {canPostUpdates && (
+            <BlockDialog
+              project={project}
+              onBlock={handleBlock}
+              onUnblock={handleUnblock}
+            />
+          )}
         </div>
 
         {/* Blocked Banner */}
         {project.is_blocked && (
-          <Card className="border-destructive bg-destructive/5">
-            <CardContent className="flex items-center gap-4 p-4">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              <div>
-                <p className="font-medium text-destructive">Action Required</p>
-                <p className="text-sm text-muted-foreground">
-                  {project.blocked_reason || 'This project is waiting for your input'}
+          <Card className="border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20">
+            <CardContent className="flex items-center gap-3 p-3">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                  Blocked
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {project.blocked_reason || 'This project is waiting for input'}
                 </p>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Status Timeline */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Project Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              {statusOrder.map((status, index) => (
-                <div key={status} className="flex items-center flex-1">
-                  <div className="flex flex-col items-center">
-                    <div 
-                      className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                        index <= currentStatusIndex 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {index < currentStatusIndex ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        index + 1
-                      )}
-                    </div>
-                    <span className="text-xs mt-1 text-muted-foreground">
-                      {statusLabels[status]}
-                    </span>
-                  </div>
-                  {index < statusOrder.length - 1 && (
-                    <div 
-                      className={`flex-1 h-0.5 mx-2 ${
-                        index < currentStatusIndex ? 'bg-primary' : 'bg-muted'
-                      }`} 
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Phase Advancer — team/admin only */}
+        {canPostUpdates && (
+          <Card>
+            <CardContent className="p-3">
+              <PhaseAdvancer
+                project={project}
+                onAdvance={handleAdvancePhase}
+                onChangePhase={handleChangePhase}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Description */}
         {project.description && (
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Description</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                Description
+              </p>
               <p className="text-sm whitespace-pre-wrap">{project.description}</p>
             </CardContent>
           </Card>
         )}
 
+        {/* Messaging Tabs */}
+        <Card>
+          <Tabs defaultValue="client-chat">
+            <CardHeader className="pb-0 pt-3 px-3">
+              <TabsList className="h-8">
+                <TabsTrigger value="client-chat" className="text-xs gap-1.5 h-7">
+                  <MessageSquare className="h-3 w-3" />
+                  Client Chat
+                </TabsTrigger>
+                {canPostUpdates && (
+                  <TabsTrigger value="team-notes" className="text-xs gap-1.5 h-7">
+                    <StickyNote className="h-3 w-3" />
+                    Team Notes
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </CardHeader>
+
+            <TabsContent value="client-chat" className="mt-0">
+              <MessageThread projectId={project.id} isInternal={false} />
+            </TabsContent>
+
+            {canPostUpdates && (
+              <TabsContent value="team-notes" className="mt-0">
+                <MessageThread projectId={project.id} isInternal={true} />
+              </TabsContent>
+            )}
+          </Tabs>
+        </Card>
+
         {/* Team Update Form */}
         {canPostUpdates && (
-          <TeamUpdateForm 
-            projectId={project.id} 
-            onSubmit={handlePostUpdate}
-          />
+          <TeamUpdateForm projectId={project.id} onSubmit={handlePostUpdate} />
         )}
 
         {/* Activity Feed */}
         <Card>
-          <CardHeader>
-            <CardTitle>Activity</CardTitle>
-            <CardDescription>Updates and deliverables for this project</CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Activity</CardTitle>
+            <CardDescription className="text-xs">
+              Updates and deliverables
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {updates.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>No updates yet</p>
-                <p className="text-sm">Updates will appear here as work progresses</p>
+              <div className="text-center py-8 text-muted-foreground/60">
+                <FileText className="mx-auto h-8 w-8 mb-2" />
+                <p className="text-xs">No updates yet</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {updates.map((update) => {
-                  const hasDraft = update.change_request_draft && (update.change_request_text || update.change_request_link);
-                  const LinkIcon = getLinkIcon(update.change_request_link_type);
-                  
+                  const hasDraft =
+                    update.change_request_draft &&
+                    (update.change_request_text || update.change_request_link);
+                  const LinkIconComponent = getLinkIcon(
+                    update.change_request_link_type || null,
+                  );
+
                   return (
                     <div key={update.id} className="relative pl-8">
                       <div className="absolute left-0 top-0">
                         <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                          <AvatarFallback className="text-[10px] bg-foreground/10 text-foreground/70">
                             {getInitials(update.author_name, update.author_email)}
                           </AvatarFallback>
                         </Avatar>
                       </div>
-                      <div className={`rounded-lg border p-4 ${update.is_deliverable ? 'border-primary bg-primary/5' : ''}`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
+
+                      <div
+                        className={`rounded-lg border p-3 ${
+                          update.is_deliverable
+                            ? 'border-primary/30 bg-primary/5'
+                            : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-medium">
                               {update.author_name || 'Team Member'}
                             </span>
                             {update.is_deliverable && (
-                              <Badge className="bg-primary/10 text-primary">Deliverable</Badge>
+                              <Badge className="bg-primary/10 text-primary text-[10px] h-4 px-1">
+                                Deliverable
+                              </Badge>
                             )}
                             {update.hours_logged && (
-                              <Badge variant="outline" className="text-xs">
-                                {update.hours_logged}h logged
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] h-4 px-1"
+                              >
+                                {update.hours_logged}h
                               </Badge>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground">
                             {format(new Date(update.created_at), 'MMM d, h:mm a')}
                           </span>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">{update.content}</p>
-                        
-                        {/* Deliverable Actions for Client */}
+
+                        <p className="text-sm whitespace-pre-wrap">
+                          {update.content}
+                        </p>
+
+                        {/* Client: approve / request changes */}
                         {update.is_deliverable && isClient && (
-                          <div className="mt-4 pt-4 border-t">
+                          <div className="mt-3 pt-3 border-t">
                             {update.is_approved === null || hasDraft ? (
-                              <div className="space-y-3">
-                                {/* Draft indicator */}
+                              <div className="space-y-2">
                                 {hasDraft && (
-                                  <div className="flex items-center gap-2 text-sm text-warning">
-                                    <Edit2 className="h-4 w-4" />
-                                    <span>You have a draft change request</span>
+                                  <div className="flex items-center gap-2 text-xs text-orange-600 dark:text-orange-400">
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                    <span>Draft change request</span>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => setChangeRequestUpdate(update)}
+                                      className="h-6 text-[10px]"
+                                      onClick={() =>
+                                        setChangeRequestUpdate(update)
+                                      }
                                     >
-                                      Continue Editing
+                                      Continue
                                     </Button>
                                   </div>
                                 )}
-                                
                                 {!hasDraft && (
                                   <div className="flex gap-2">
                                     <Button
                                       size="sm"
-                                      onClick={() => handleApproveDeliverable(update.id)}
+                                      className="h-7 text-xs"
+                                      onClick={() =>
+                                        handleApproveDeliverable(update.id)
+                                      }
                                       disabled={approving === update.id}
                                     >
                                       {approving === update.id ? (
@@ -522,7 +587,10 @@ export default function ProjectDetail() {
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => setChangeRequestUpdate(update)}
+                                      className="h-7 text-xs"
+                                      onClick={() =>
+                                        setChangeRequestUpdate(update)
+                                      }
                                     >
                                       <XCircle className="mr-1 h-3 w-3" />
                                       Request Changes
@@ -531,97 +599,124 @@ export default function ProjectDetail() {
                                 )}
                               </div>
                             ) : (
-                              <div className="space-y-3">
-                                <div className={`flex items-center gap-2 text-sm ${
-                                  update.is_approved ? 'text-success' : 'text-warning'
-                                }`}>
+                              <div className="space-y-2">
+                                <div
+                                  className={`flex items-center gap-1.5 text-xs ${
+                                    update.is_approved
+                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      : 'text-orange-600 dark:text-orange-400'
+                                  }`}
+                                >
                                   {update.is_approved ? (
                                     <>
-                                      <CheckCircle2 className="h-4 w-4" />
-                                      <span>Approved</span>
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                      Approved
                                     </>
                                   ) : (
                                     <>
-                                      <XCircle className="h-4 w-4" />
-                                      <span>Changes requested</span>
+                                      <XCircle className="h-3.5 w-3.5" />
+                                      Changes requested
                                       {update.change_request_submitted_at && (
-                                        <span className="text-xs text-muted-foreground">
-                                          ({format(new Date(update.change_request_submitted_at), 'MMM d, h:mm a')})
+                                        <span className="text-[10px] text-muted-foreground ml-1">
+                                          {format(
+                                            new Date(
+                                              update.change_request_submitted_at,
+                                            ),
+                                            'MMM d',
+                                          )}
                                         </span>
                                       )}
                                     </>
                                   )}
                                 </div>
-                                
-                                {/* Show change request details */}
-                                {!update.is_approved && update.change_request_text && (
-                                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
-                                    <p className="text-sm font-medium mb-1">Requested Changes:</p>
-                                    <p className="text-sm whitespace-pre-wrap">{update.change_request_text}</p>
-                                  </div>
-                                )}
-                                
-                                {!update.is_approved && update.change_request_link && (
-                                  <a 
-                                    href={update.change_request_link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                                  >
-                                    <LinkIcon className="h-4 w-4" />
-                                    <span>View attached feedback</span>
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                )}
+
+                                {!update.is_approved &&
+                                  update.change_request_text && (
+                                    <div className="p-2 rounded bg-orange-50 dark:bg-orange-900/10 border border-orange-200/50 dark:border-orange-800/30">
+                                      <p className="text-xs font-medium mb-0.5">
+                                        Requested Changes:
+                                      </p>
+                                      <p className="text-xs whitespace-pre-wrap">
+                                        {update.change_request_text}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                {!update.is_approved &&
+                                  update.change_request_link && (
+                                    <a
+                                      href={update.change_request_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                                    >
+                                      <LinkIconComponent className="h-3 w-3" />
+                                      View feedback
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                  )}
                               </div>
                             )}
                           </div>
                         )}
 
-                        {/* Show change request details to team */}
-                        {update.is_deliverable && canPostUpdates && update.is_approved === false && (
-                          <div className="mt-4 pt-4 border-t space-y-3">
-                            <div className="flex items-center gap-2 text-sm text-warning">
-                              <XCircle className="h-4 w-4" />
-                              <span>Client requested changes</span>
-                              {update.change_request_submitted_at && (
-                                <span className="text-xs text-muted-foreground">
-                                  ({format(new Date(update.change_request_submitted_at), 'MMM d, h:mm a')})
-                                </span>
+                        {/* Team: see change request details */}
+                        {update.is_deliverable &&
+                          canPostUpdates &&
+                          update.is_approved === false && (
+                            <div className="mt-3 pt-3 border-t space-y-2">
+                              <div className="flex items-center gap-1.5 text-xs text-orange-600 dark:text-orange-400">
+                                <XCircle className="h-3.5 w-3.5" />
+                                Client requested changes
+                                {update.change_request_submitted_at && (
+                                  <span className="text-[10px] text-muted-foreground ml-1">
+                                    {format(
+                                      new Date(
+                                        update.change_request_submitted_at,
+                                      ),
+                                      'MMM d, h:mm a',
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+
+                              {update.change_request_text && (
+                                <div className="p-2 rounded bg-orange-50 dark:bg-orange-900/10 border border-orange-200/50 dark:border-orange-800/30">
+                                  <p className="text-xs font-medium mb-0.5">
+                                    Requested Changes:
+                                  </p>
+                                  <p className="text-xs whitespace-pre-wrap">
+                                    {update.change_request_text}
+                                  </p>
+                                </div>
+                              )}
+
+                              {update.change_request_link && (
+                                <a
+                                  href={update.change_request_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                                >
+                                  <LinkIconComponent className="h-3 w-3" />
+                                  View feedback
+                                  <ExternalLink className="h-2.5 w-2.5" />
+                                </a>
                               )}
                             </div>
-                            
-                            {update.change_request_text && (
-                              <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
-                                <p className="text-sm font-medium mb-1">Requested Changes:</p>
-                                <p className="text-sm whitespace-pre-wrap">{update.change_request_text}</p>
-                              </div>
-                            )}
-                            
-                            {update.change_request_link && (
-                              <a 
-                                href={update.change_request_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                              >
-                                <LinkIcon className="h-4 w-4" />
-                                <span>View attached feedback</span>
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            )}
-                          </div>
-                        )}
+                          )}
 
-                        {/* Show approved status to team */}
-                        {update.is_deliverable && canPostUpdates && update.is_approved === true && (
-                          <div className="mt-4 pt-4 border-t">
-                            <div className="flex items-center gap-2 text-sm text-success">
-                              <CheckCircle2 className="h-4 w-4" />
-                              <span>Client approved this deliverable</span>
+                        {/* Team: see approved */}
+                        {update.is_deliverable &&
+                          canPostUpdates &&
+                          update.is_approved === true && (
+                            <div className="mt-3 pt-3 border-t">
+                              <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Client approved
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     </div>
                   );
@@ -636,8 +731,14 @@ export default function ProjectDetail() {
       <ChangeRequestModal
         open={!!changeRequestUpdate}
         onOpenChange={(open) => !open && setChangeRequestUpdate(null)}
-        deliverableTitle={changeRequestUpdate?.content.slice(0, 50) + '...' || ''}
-        existingDraft={changeRequestUpdate ? getExistingDraft(changeRequestUpdate) : null}
+        deliverableTitle={
+          changeRequestUpdate
+            ? changeRequestUpdate.content.slice(0, 50) + '...'
+            : ''
+        }
+        existingDraft={
+          changeRequestUpdate ? getExistingDraft(changeRequestUpdate) : null
+        }
         onSaveDraft={handleSaveChangeRequestDraft}
         onSubmit={handleSubmitChangeRequest}
       />

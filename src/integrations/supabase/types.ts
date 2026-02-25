@@ -56,8 +56,46 @@ export type Database = {
           },
         ]
       }
+      ai_workspaces: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          category: string
+          url: string
+          icon_url: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          category: string
+          url: string
+          icon_url?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          category?: string
+          url?: string
+          icon_url?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
+          ai_cmo_url: string | null
+          archived_at: string | null
           billing_email: string | null
           company_website: string | null
           contact_email: string | null
@@ -67,6 +105,7 @@ export type Database = {
           hours_used: number | null
           id: string
           invoicing_email: string | null
+          is_active: boolean
           logo_url: string | null
           max_concurrent_projects: number | null
           name: string
@@ -76,6 +115,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_cmo_url?: string | null
+          archived_at?: string | null
           billing_email?: string | null
           company_website?: string | null
           contact_email?: string | null
@@ -85,6 +126,7 @@ export type Database = {
           hours_used?: number | null
           id?: string
           invoicing_email?: string | null
+          is_active?: boolean
           logo_url?: string | null
           max_concurrent_projects?: number | null
           name: string
@@ -94,6 +136,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_cmo_url?: string | null
+          archived_at?: string | null
           billing_email?: string | null
           company_website?: string | null
           contact_email?: string | null
@@ -103,6 +147,7 @@ export type Database = {
           hours_used?: number | null
           id?: string
           invoicing_email?: string | null
+          is_active?: boolean
           logo_url?: string | null
           max_concurrent_projects?: number | null
           name?: string
@@ -112,6 +157,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      company_credentials: {
+        Row: {
+          id: string
+          company_id: string
+          label: string
+          value: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          label: string
+          value: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          label?: string
+          value?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_credentials_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       file_flags: {
         Row: {
@@ -257,6 +340,47 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          id: string
+          project_id: string
+          author_id: string
+          content: string
+          is_internal: boolean
+          link_url: string | null
+          link_type: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          author_id: string
+          content: string
+          is_internal?: boolean
+          link_url?: string | null
+          link_type?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          author_id?: string
+          content?: string
+          is_internal?: boolean
+          link_url?: string | null
+          link_type?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -354,6 +478,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          assigned_to: string | null
           blocked_reason: string | null
           company_id: string
           created_at: string
@@ -362,12 +487,17 @@ export type Database = {
           id: string
           is_blocked: boolean
           name: string
+          phase: Database["public"]["Enums"]["workflow_phase"]
+          phase_due_date: string | null
+          phase_started_at: string | null
+          priority: string
           project_type: Database["public"]["Enums"]["project_type"]
           status: Database["public"]["Enums"]["project_status"]
           target_date: string | null
           updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
           blocked_reason?: string | null
           company_id: string
           created_at?: string
@@ -376,12 +506,17 @@ export type Database = {
           id?: string
           is_blocked?: boolean
           name: string
+          phase?: Database["public"]["Enums"]["workflow_phase"]
+          phase_due_date?: string | null
+          phase_started_at?: string | null
+          priority?: string
           project_type?: Database["public"]["Enums"]["project_type"]
           status?: Database["public"]["Enums"]["project_status"]
           target_date?: string | null
           updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
           blocked_reason?: string | null
           company_id?: string
           created_at?: string
@@ -390,6 +525,10 @@ export type Database = {
           id?: string
           is_blocked?: boolean
           name?: string
+          phase?: Database["public"]["Enums"]["workflow_phase"]
+          phase_due_date?: string | null
+          phase_started_at?: string | null
+          priority?: string
           project_type?: Database["public"]["Enums"]["project_type"]
           status?: Database["public"]["Enums"]["project_status"]
           target_date?: string | null
@@ -461,6 +600,39 @@ export type Database = {
           },
         ]
       }
+      sops: {
+        Row: {
+          id: string
+          title: string
+          category: string
+          content: string | null
+          external_url: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          category: string
+          content?: string | null
+          external_url?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          category?: string
+          content?: string | null
+          external_url?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -513,8 +685,9 @@ export type Database = {
         | "revision"
         | "review"
         | "complete"
-      project_type: "design" | "development" | "content" | "strategy" | "other"
+      project_type: "design" | "development" | "content" | "strategy" | "other" | "copywriting" | "cro"
       retainer_type: "unlimited" | "hourly" | "one_time"
+      workflow_phase: "shaping" | "sales_copy" | "design" | "crm_config" | "launch_analyze" | "cro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -661,8 +834,9 @@ export const Constants = {
         "review",
         "complete",
       ],
-      project_type: ["design", "development", "content", "strategy", "other"],
+      project_type: ["design", "development", "content", "strategy", "other", "copywriting", "cro"],
       retainer_type: ["unlimited", "hourly", "one_time"],
+      workflow_phase: ["shaping", "sales_copy", "design", "crm_config", "launch_analyze", "cro"],
     },
   },
 } as const

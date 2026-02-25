@@ -1,0 +1,410 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Plus,
+  Eye,
+  EyeOff,
+  Copy,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  KeyRound,
+  Loader2,
+  ShieldCheck,
+} from 'lucide-react';
+
+interface Credential {
+  id: string;
+  company_id: string;
+  label: string;
+  value: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PasswordsTabProps {
+  companyId: string;
+}
+
+export function PasswordsTab({ companyId }: PasswordsTabProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCred, setEditingCred] = useState<Credential | null>(null);
+  const [deleteCred, setDeleteCred] = useState<Credential | null>(null);
+  const [formLabel, setFormLabel] = useState('');
+  const [formValue, setFormValue] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchCredentials();
+  }, [companyId]);
+
+  const fetchCredentials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('company_credentials')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('label');
+
+      if (error) throw error;
+      setCredentials(data || []);
+    } catch (error) {
+      console.error('Error fetching credentials:', error);
+      toast({ title: 'Failed to load credentials', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleReveal = (id: string) => {
+    setRevealedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const copyToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({ title: 'Copied to clipboard' });
+    } catch {
+      toast({ title: 'Failed to copy', variant: 'destructive' });
+    }
+  };
+
+  const openAdd = () => {
+    setEditingCred(null);
+    setFormLabel('');
+    setFormValue('');
+    setDialogOpen(true);
+  };
+
+  const openEdit = (cred: Credential) => {
+    setEditingCred(cred);
+    setFormLabel(cred.label);
+    setFormValue(cred.value);
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setEditingCred(null);
+    setFormLabel('');
+    setFormValue('');
+  };
+
+  const handleSave = async () => {
+    if (!formLabel.trim() || !formValue.trim()) {
+      toast({
+        title: 'Both fields are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editingCred) {
+        const { error } = await supabase
+          .from('company_credentials')
+          .update({
+            label: formLabel.trim(),
+            value: formValue.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingCred.id);
+
+        if (error) throw error;
+        toast({ title: 'Credential updated' });
+      } else {
+        const { error } = await supabase
+          .from('company_credentials')
+          .insert({
+            company_id: companyId,
+            label: formLabel.trim(),
+            value: formValue.trim(),
+            created_by: user?.id,
+          });
+
+        if (error) throw error;
+        toast({ title: 'Credential added' });
+      }
+
+      closeDialog();
+      fetchCredentials();
+    } catch (error) {
+      console.error('Error saving credential:', error);
+      toast({ title: 'Failed to save credential', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteCred) return;
+
+    try {
+      const { error } = await supabase
+        .from('company_credentials')
+        .delete()
+        .eq('id', deleteCred.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Credential deleted' });
+      setDeleteCred(null);
+      fetchCredentials();
+    } catch (error) {
+      console.error('Error deleting credential:', error);
+      toast({ title: 'Failed to delete credential', variant: 'destructive' });
+    }
+  };
+
+  const maskValue = (val: string) => {
+    if (val.length <= 4) return '\u2022'.repeat(val.length);
+    return '\u2022'.repeat(val.length - 4) + val.slice(-4);
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <div className="h-9 w-36 bg-muted rounded animate-pulse" />
+        </div>
+        {[1, 2].map((i) => (
+          <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+            Passwords & Credentials
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Stored credentials for this client. Team and admin access only.
+          </p>
+        </div>
+        <Button onClick={openAdd} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          Add Credential
+        </Button>
+      </div>
+
+      {/* Credentials List */}
+      {credentials.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <KeyRound className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="font-medium">No credentials stored</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Add login credentials, API keys, or access info for this client.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {credentials.map((cred) => {
+            const isRevealed = revealedIds.has(cred.id);
+
+            return (
+              <Card key={cred.id}>
+                <CardContent className="py-3 px-4">
+                  <div className="flex items-center gap-4">
+                    <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
+
+                    {/* Label */}
+                    <span className="text-sm font-medium min-w-[120px]">
+                      {cred.label}
+                    </span>
+
+                    {/* Value (masked/revealed) */}
+                    <code
+                      className={`flex-1 text-sm px-2 py-0.5 rounded bg-muted font-mono ${
+                        !isRevealed ? 'tracking-wider' : ''
+                      }`}
+                    >
+                      {isRevealed ? cred.value : maskValue(cred.value)}
+                    </code>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => toggleReveal(cred.id)}
+                          >
+                            {isRevealed ? (
+                              <EyeOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">
+                          {isRevealed ? 'Hide' : 'Reveal'}
+                        </TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => copyToClipboard(cred.value)}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">Copy</TooltipContent>
+                      </Tooltip>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(cred)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeleteCred(cred)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingCred ? 'Edit Credential' : 'Add Credential'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Label</Label>
+              <Input
+                value={formLabel}
+                onChange={(e) => setFormLabel(e.target.value)}
+                placeholder="e.g., WordPress Admin, CRM API Key"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Value</Label>
+              <Input
+                value={formValue}
+                onChange={(e) => setFormValue(e.target.value)}
+                placeholder="Password, API key, or access info"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialog}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              {editingCred ? 'Update' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!deleteCred}
+        onOpenChange={(open) => !open && setDeleteCred(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Credential</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteCred?.label}"? This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

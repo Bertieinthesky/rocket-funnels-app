@@ -26,17 +26,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  LayoutDashboard, 
-  FolderKanban, 
-  FileText, 
+import {
+  LayoutDashboard,
+  FolderKanban,
+  FileText,
   Settings,
   LogOut,
   Users,
   Building2,
   Kanban,
   Loader2,
-  Eye
+  Eye,
+  AlertCircle
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -99,6 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/clients', icon: Building2, label: 'Clients' },
     { to: '/kanban', icon: Kanban, label: 'Kanban' },
+    { to: '/action-items', icon: AlertCircle, label: 'Action Items' },
     { to: '/files', icon: FileText, label: 'Files' },
   ];
 
@@ -106,6 +108,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/clients', icon: Building2, label: 'Clients' },
     { to: '/kanban', icon: Kanban, label: 'Kanban' },
+    { to: '/action-items', icon: AlertCircle, label: 'Action Items' },
     { to: '/files', icon: FileText, label: 'Files' },
     { to: '/users', icon: Users, label: 'Users' },
     { to: '/settings', icon: Settings, label: 'Settings' },

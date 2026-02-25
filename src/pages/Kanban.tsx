@@ -1,190 +1,213 @@
-import { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Loader2, Filter, Calendar, Bell, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
-import { format, isPast, isToday, isTomorrow, differenceInDays } from 'date-fns';
+import { Loader2 } from 'lucide-react';
+import {
+  STATUSES,
+  STATUS_ORDER,
+  type ProjectStatus,
+  type WorkflowPhase,
+} from '@/lib/constants';
+import { useProjects, useUpdateProject } from '@/hooks/useProjects';
+import { useCompanies } from '@/hooks/useCompanies';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { KanbanFilters, type KanbanFilterState } from '@/components/kanban/KanbanFilters';
+import { KanbanCard } from '@/components/kanban/KanbanCard';
+import { useToast } from '@/hooks/use-toast';
 
-interface Project {
-  id: string;
-  name: string;
-  status: string;
-  project_type: string;
-  is_blocked: boolean;
-  blocked_reason: string | null;
-  company_id: string;
-  company_name?: string;
-  target_date: string | null;
-}
+// ---------------------------------------------------------------------------
+// Notifications hook — counts pending approvals + change requests per project
+// ---------------------------------------------------------------------------
 
-interface Company {
-  id: string;
-  name: string;
-}
-
-interface ProjectNotifications {
+interface ProjectNotificationCounts {
   pendingApprovals: number;
   changeRequests: number;
-  newUpdates: number;
 }
 
-const statusColumns = [
-  { key: 'queued', label: 'Queued', color: 'bg-muted' },
-  { key: 'in_progress', label: 'In Progress', color: 'bg-primary/10' },
-  { key: 'revision', label: 'Revision', color: 'bg-orange-100 dark:bg-orange-900/30' },
-  { key: 'review', label: 'Review', color: 'bg-blue-100 dark:bg-blue-900/30' },
-  { key: 'complete', label: 'Complete', color: 'bg-green-100 dark:bg-green-900/30' },
-];
+function useProjectNotifications(projectIds: string[]) {
+  return useQuery({
+    queryKey: ['projectNotifications', projectIds],
+    queryFn: async () => {
+      if (projectIds.length === 0) return {};
 
-const typeColors: Record<string, string> = {
-  design: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  development: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  content: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  strategy: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  other: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
-};
-
-const projectTypes = ['design', 'development', 'content', 'strategy', 'other'];
-
-export default function Kanban() {
-  const { isTeam, isAdmin } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [projectNotifications, setProjectNotifications] = useState<Record<string, ProjectNotifications>>({});
-  const [loading, setLoading] = useState(true);
-
-  // Filter state
-  const [selectedClient, setSelectedClient] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [showBlocked, setShowBlocked] = useState<boolean>(false);
-
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
-    try {
-      const { data: projectsData, error } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('updates')
+        .select('project_id, is_deliverable, is_approved, change_request_text')
+        .in('project_id', projectIds);
 
       if (error) throw error;
 
-      // Fetch company names
-      const companyIds = [...new Set((projectsData || []).map(p => p.company_id))];
-      const { data: companiesData } = await supabase
-        .from('companies')
-        .select('id, name')
-        .in('id', companyIds);
-
-      const companyMap = new Map(companiesData?.map(c => [c.id, c.name]));
-
-      const projectsWithCompany = (projectsData || []).map(project => ({
-        ...project,
-        company_name: companyMap.get(project.company_id) || 'Unknown',
-      }));
-
-      setProjects(projectsWithCompany);
-      setCompanies(companiesData || []);
-
-      // Fetch notifications for each project (updates with pending approvals, change requests, etc.)
-      const projectIds = (projectsData || []).map(p => p.id);
-      if (projectIds.length > 0) {
-        const { data: updatesData } = await supabase
-          .from('updates')
-          .select('project_id, is_deliverable, is_approved, change_request_text, change_request_submitted_at')
-          .in('project_id', projectIds);
-
-        // Calculate notifications per project
-        const notificationsMap: Record<string, ProjectNotifications> = {};
-        projectIds.forEach(id => {
-          notificationsMap[id] = { pendingApprovals: 0, changeRequests: 0, newUpdates: 0 };
-        });
-
-        (updatesData || []).forEach(update => {
-          if (!notificationsMap[update.project_id]) return;
-          
-          // Pending approval = deliverable with is_approved === null
-          if (update.is_deliverable && update.is_approved === null) {
-            notificationsMap[update.project_id].pendingApprovals++;
-          }
-          
-          // Change request = deliverable with is_approved === false and has change_request_text
-          if (update.is_deliverable && update.is_approved === false && update.change_request_text) {
-            notificationsMap[update.project_id].changeRequests++;
-          }
-        });
-
-        setProjectNotifications(notificationsMap);
+      const map: Record<string, ProjectNotificationCounts> = {};
+      for (const id of projectIds) {
+        map[id] = { pendingApprovals: 0, changeRequests: 0 };
       }
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Filtered projects based on selected filters
+      for (const row of data || []) {
+        if (!map[row.project_id]) continue;
+        if (row.is_deliverable && row.is_approved === null) {
+          map[row.project_id].pendingApprovals++;
+        }
+        if (row.is_deliverable && row.is_approved === false && row.change_request_text) {
+          map[row.project_id].changeRequests++;
+        }
+      }
+
+      return map;
+    },
+    enabled: projectIds.length > 0,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+const DEFAULT_FILTERS: KanbanFilterState = {
+  client: 'all',
+  phase: 'all',
+  type: 'all',
+  priority: 'all',
+  assignedTo: 'all',
+  blockedOnly: false,
+  showCompleted: false,
+};
+
+export default function Kanban() {
+  const { isTeam, isAdmin } = useAuth();
+  const { toast } = useToast();
+  const [filters, setFilters] = useState<KanbanFilterState>(DEFAULT_FILTERS);
+
+  // Data
+  const { data: allProjects = [], isLoading: projectsLoading } = useProjects({
+    includeCompleted: true,
+  });
+  const { data: companies = [] } = useCompanies({ filter: 'all' });
+  const { data: teamMembers = [] } = useTeamMembers();
+  const updateProject = useUpdateProject();
+
+  // Notification counts
+  const projectIds = useMemo(() => allProjects.map((p) => p.id), [allProjects]);
+  const { data: notificationsMap = {} } = useProjectNotifications(projectIds);
+
+  // Assignee lookup
+  const assigneeMap = useMemo(() => {
+    const m = new Map<string, (typeof teamMembers)[number]>();
+    for (const tm of teamMembers) m.set(tm.id, tm);
+    return m;
+  }, [teamMembers]);
+
+  // ── Filtering ────────────────────────────────────────────────────────────
+
   const filteredProjects = useMemo(() => {
-    let result = projects;
+    let result = allProjects;
 
-    if (selectedClient !== 'all') {
-      result = result.filter(p => p.company_id === selectedClient);
+    if (filters.client !== 'all') {
+      result = result.filter((p) => p.company_id === filters.client);
     }
-
-    if (selectedType !== 'all') {
-      result = result.filter(p => p.project_type === selectedType);
+    if (filters.phase !== 'all') {
+      result = result.filter((p) => p.phase === filters.phase);
     }
-
-    if (showBlocked) {
-      result = result.filter(p => p.is_blocked);
+    if (filters.type !== 'all') {
+      result = result.filter((p) => p.project_type === filters.type);
+    }
+    if (filters.priority !== 'all') {
+      result = result.filter((p) => p.priority === filters.priority);
+    }
+    if (filters.assignedTo !== 'all') {
+      result = result.filter((p) => p.assigned_to === filters.assignedTo);
+    }
+    if (filters.blockedOnly) {
+      result = result.filter((p) => p.is_blocked);
     }
 
     return result;
-  }, [projects, selectedClient, selectedType, showBlocked]);
+  }, [allProjects, filters]);
 
-  const clearFilters = () => {
-    setSelectedClient('all');
-    setSelectedType('all');
-    setShowBlocked(false);
+  // ── Column distribution ──────────────────────────────────────────────────
+  // Blocked is a virtual column: is_blocked === true regardless of actual status.
+  // "revision" status maps to "in_progress" column.
+
+  const columns = useMemo(() => {
+    const visibleStatuses = filters.showCompleted
+      ? STATUS_ORDER
+      : STATUS_ORDER.filter((s) => s !== 'complete');
+
+    return visibleStatuses.map((status) => {
+      let columnProjects;
+
+      if (status === 'blocked') {
+        columnProjects = filteredProjects.filter((p) => p.is_blocked);
+      } else {
+        columnProjects = filteredProjects.filter((p) => {
+          if (p.is_blocked) return false; // blocked projects only appear in blocked column
+          const projectStatus = p.status === 'revision' ? 'in_progress' : p.status;
+          return projectStatus === status;
+        });
+      }
+
+      return {
+        status,
+        config: STATUSES[status],
+        projects: columnProjects,
+      };
+    });
+  }, [filteredProjects, filters.showCompleted]);
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+
+  const handleBlock = (id: string, reason: string, notify: boolean) => {
+    updateProject.mutate(
+      { id, is_blocked: true, blocked_reason: reason },
+      {
+        onSuccess: () => {
+          toast({ title: 'Project blocked', description: notify ? 'Client will be notified.' : undefined });
+        },
+      },
+    );
   };
 
-  const hasActiveFilters = selectedClient !== 'all' || selectedType !== 'all' || showBlocked;
-
-  const getDueDateInfo = (targetDate: string | null) => {
-    if (!targetDate) return null;
-    
-    const date = new Date(targetDate);
-    const now = new Date();
-    
-    if (isPast(date) && !isToday(date)) {
-      return { label: 'Overdue', className: 'text-destructive', icon: Calendar };
-    }
-    if (isToday(date)) {
-      return { label: 'Due today', className: 'text-warning', icon: Calendar };
-    }
-    if (isTomorrow(date)) {
-      return { label: 'Due tomorrow', className: 'text-warning', icon: Calendar };
-    }
-    const daysUntil = differenceInDays(date, now);
-    if (daysUntil <= 7) {
-      return { label: format(date, 'MMM d'), className: 'text-muted-foreground', icon: Calendar };
-    }
-    return { label: format(date, 'MMM d'), className: 'text-muted-foreground', icon: Calendar };
+  const handleUnblock = (id: string) => {
+    updateProject.mutate(
+      { id, is_blocked: false, blocked_reason: null },
+      {
+        onSuccess: () => {
+          toast({ title: 'Project unblocked' });
+        },
+      },
+    );
   };
 
-  const getTotalNotifications = (projectId: string) => {
-    const notif = projectNotifications[projectId];
-    if (!notif) return 0;
-    return notif.pendingApprovals + notif.changeRequests;
+  const handleSendForReview = (id: string) => {
+    updateProject.mutate(
+      { id, status: 'review' as any },
+      {
+        onSuccess: () => {
+          toast({ title: 'Sent for review', description: 'The client will be notified.' });
+        },
+      },
+    );
   };
+
+  const handleChangePhase = (id: string, phase: WorkflowPhase) => {
+    updateProject.mutate(
+      {
+        id,
+        phase: phase as any,
+        phase_started_at: new Date().toISOString(),
+      },
+      {
+        onSuccess: () => {
+          toast({ title: 'Phase updated' });
+        },
+      },
+    );
+  };
+
+  // ── Guards ───────────────────────────────────────────────────────────────
 
   if (!isTeam && !isAdmin) {
     return (
@@ -196,7 +219,7 @@ export default function Kanban() {
     );
   }
 
-  if (loading) {
+  if (projectsLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center py-12">
@@ -206,177 +229,83 @@ export default function Kanban() {
     );
   }
 
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Kanban Board</h1>
-            <p className="text-muted-foreground">Overview of all projects across clients</p>
-          </div>
+      <div className="space-y-4">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Kanban Board</h1>
+          <p className="text-sm text-muted-foreground">
+            All projects across clients
+          </p>
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg flex-wrap">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">Filters:</span>
-          </div>
+        {/* Filters */}
+        <KanbanFilters
+          filters={filters}
+          onChange={setFilters}
+          companies={companies}
+          teamMembers={teamMembers}
+          projectCount={filteredProjects.length}
+        />
 
-          {/* Client Filter */}
-          <Select value={selectedClient} onValueChange={setSelectedClient}>
-            <SelectTrigger className="w-[180px] h-9 bg-background">
-              <SelectValue placeholder="All Clients" />
-            </SelectTrigger>
-            <SelectContent className="bg-background border shadow-lg z-50">
-              <SelectItem value="all">All Clients</SelectItem>
-              {companies.map(company => (
-                <SelectItem key={company.id} value={company.id}>
-                  {company.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Board */}
+        <div
+          className="grid gap-3 min-h-[calc(100vh-260px)]"
+          style={{
+            gridTemplateColumns: `repeat(${columns.length}, minmax(240px, 1fr))`,
+          }}
+        >
+          {columns.map(({ status, config, projects }) => {
+            const StatusIcon = config.icon;
 
-          {/* Task Type Filter */}
-          <Select value={selectedType} onValueChange={setSelectedType}>
-            <SelectTrigger className="w-[160px] h-9 bg-background">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent className="bg-background border shadow-lg z-50">
-              <SelectItem value="all">All Types</SelectItem>
-              {projectTypes.map(type => (
-                <SelectItem key={type} value={type} className="capitalize">
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Show Blocked Toggle */}
-          <Button
-            variant={showBlocked ? 'default' : 'outline'}
-            size="sm"
-            className="h-9"
-            onClick={() => setShowBlocked(!showBlocked)}
-          >
-            <AlertCircle className="h-4 w-4 mr-1" />
-            Blocked Only
-          </Button>
-
-          {/* Clear Filters */}
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 text-muted-foreground"
-              onClick={clearFilters}
-            >
-              Clear Filters
-            </Button>
-          )}
-
-          {/* Results count */}
-          <div className="ml-auto text-sm text-muted-foreground">
-            {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-5 gap-4 min-h-[calc(100vh-280px)]">
-          {statusColumns.map((column) => {
-            const columnProjects = filteredProjects.filter(p => p.status === column.key);
-            
             return (
-              <div key={column.key} className="flex flex-col">
-                <div className={`rounded-t-lg px-3 py-2 ${column.color}`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm">{column.label}</h3>
-                    <Badge variant="secondary" className="text-xs">
-                      {columnProjects.length}
-                    </Badge>
+              <div key={status} className="flex flex-col min-w-0">
+                {/* Column header */}
+                <div
+                  className={`flex items-center justify-between px-3 py-2 rounded-t-lg ${config.columnColor}`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <StatusIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold">{config.label}</h3>
                   </div>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] h-5 min-w-[20px] justify-center font-mono tabular-nums"
+                  >
+                    {projects.length}
+                  </Badge>
                 </div>
-                
+
+                {/* Column body */}
                 <ScrollArea className="flex-1 border border-t-0 rounded-b-lg bg-muted/20">
                   <div className="p-2 space-y-2">
-                    {columnProjects.map((project) => {
-                      const dueDateInfo = getDueDateInfo(project.target_date);
-                      const totalNotifications = getTotalNotifications(project.id);
-                      const notif = projectNotifications[project.id];
-                      
-                      return (
-                        <Link key={project.id} to={`/projects/${project.id}`}>
-                          <Card className={`hover:border-primary/50 transition-colors cursor-pointer ${
-                            project.is_blocked 
-                              ? 'border-destructive/50 bg-destructive/5 ring-1 ring-destructive/20' 
-                              : ''
-                          }`}>
-                            <CardHeader className="p-3 pb-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <CardTitle className="text-sm font-medium leading-tight">
-                                  {project.name}
-                                </CardTitle>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {totalNotifications > 0 && (
-                                    <Badge variant="destructive" className="h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-                                      {totalNotifications}
-                                    </Badge>
-                                  )}
-                                  {project.is_blocked && (
-                                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
-                                      <AlertCircle className="h-3 w-3" />
-                                      <span className="text-[10px] font-medium uppercase">Blocked</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <CardDescription className="text-xs truncate">
-                                {project.company_name}
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-3 pt-0 space-y-2">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Badge 
-                                  variant="secondary" 
-                                  className={`text-xs ${typeColors[project.project_type]}`}
-                                >
-                                  {project.project_type}
-                                </Badge>
-                                
-                                {/* Due Date */}
-                                {dueDateInfo && (
-                                  <span className={`text-xs flex items-center gap-1 ${dueDateInfo.className}`}>
-                                    <Calendar className="h-3 w-3" />
-                                    {dueDateInfo.label}
-                                  </span>
-                                )}
-                              </div>
-                              
-                              {/* Notification indicators */}
-                              {notif && (notif.pendingApprovals > 0 || notif.changeRequests > 0) && (
-                                <div className="flex items-center gap-2 text-[10px]">
-                                  {notif.pendingApprovals > 0 && (
-                                    <span className="flex items-center gap-1 text-primary">
-                                      <CheckCircle className="h-3 w-3" />
-                                      {notif.pendingApprovals} pending
-                                    </span>
-                                  )}
-                                  {notif.changeRequests > 0 && (
-                                    <span className="flex items-center gap-1 text-warning">
-                                      <XCircle className="h-3 w-3" />
-                                      {notif.changeRequests} revision{notif.changeRequests !== 1 ? 's' : ''}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        </Link>
-                      );
-                    })}
-                    
-                    {columnProjects.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
+                    {projects.map((project) => (
+                      <KanbanCard
+                        key={project.id}
+                        project={project}
+                        notifications={
+                          notificationsMap[project.id] || {
+                            pendingApprovals: 0,
+                            changeRequests: 0,
+                          }
+                        }
+                        assignee={
+                          project.assigned_to
+                            ? assigneeMap.get(project.assigned_to)
+                            : undefined
+                        }
+                        onBlock={handleBlock}
+                        onUnblock={handleUnblock}
+                        onSendForReview={handleSendForReview}
+                        onChangePhase={handleChangePhase}
+                      />
+                    ))}
+
+                    {projects.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground/60 text-xs">
                         No projects
                       </div>
                     )}

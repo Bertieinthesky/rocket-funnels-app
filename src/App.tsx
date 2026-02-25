@@ -17,6 +17,7 @@ import ClientDetail from "./pages/ClientDetail";
 import Kanban from "./pages/Kanban";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import ActionItems from "./pages/ActionItems";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -119,6 +120,11 @@ const AppRoutes = () => (
     <Route path="/kanban" element={
       <ProtectedRoute>
         <Kanban />
+      </ProtectedRoute>
+    } />
+    <Route path="/action-items" element={
+      <ProtectedRoute>
+        <ActionItems />
       </ProtectedRoute>
     } />
     <Route path="/users" element={
