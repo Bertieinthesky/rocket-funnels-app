@@ -11,12 +11,14 @@ import {
   Clock,
   AlertTriangle,
   FolderKanban,
+  CheckSquare,
   ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useProjects } from '@/hooks/useProjects';
 import { useActionItems } from '@/hooks/useActionItems';
+import { useTasks } from '@/hooks/useTasks';
 import { useCompany } from '@/hooks/useCompanies';
 import {
   PHASES,
@@ -25,6 +27,7 @@ import {
   type ProjectStatus,
 } from '@/lib/constants';
 import { ActionItemsWidget } from './ActionItemsWidget';
+import type { Task } from '@/hooks/useTasks';
 
 export function ClientDashboard() {
   const { user } = useAuth();
@@ -56,11 +59,24 @@ export function ClientDashboard() {
     forRole: 'client',
     companyId,
   });
+  const { data: allTasks = [] } = useTasks({ includeDone: true });
 
   const activeProjects = useMemo(
     () => projects.filter((p) => p.status !== 'complete'),
     [projects],
   );
+
+  // Task counts per campaign
+  const tasksByProject = useMemo(() => {
+    const m = new Map<string, { total: number; done: number }>();
+    for (const t of allTasks) {
+      const existing = m.get(t.project_id) || { total: 0, done: 0 };
+      existing.total++;
+      if (t.status === 'done') existing.done++;
+      m.set(t.project_id, existing);
+    }
+    return m;
+  }, [allTasks]);
 
   // Hours tracking
   const isRetainer = company?.retainer_type === 'hourly';
@@ -202,6 +218,7 @@ export function ClientDashboard() {
                           : project.status) as ProjectStatus
                       ] || STATUSES.queued;
                     const StatusIcon = status.icon;
+                    const taskCounts = tasksByProject.get(project.id);
 
                     return (
                       <Link
@@ -214,6 +231,14 @@ export function ClientDashboard() {
                             {project.name}
                           </p>
                         </div>
+
+                        {/* Task progress */}
+                        {taskCounts && taskCounts.total > 0 && (
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
+                            <CheckSquare className="h-3 w-3" />
+                            {taskCounts.done}/{taskCounts.total}
+                          </span>
+                        )}
 
                         {/* Phase badge */}
                         <Badge

@@ -8,10 +8,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  FolderKanban,
+  CheckSquare,
   CalendarClock,
   Ban,
-  Eye,
+  FolderKanban,
   Calendar,
   ArrowRight,
 } from 'lucide-react';
@@ -19,12 +19,11 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjects } from '@/hooks/useProjects';
 import { useActionItems } from '@/hooks/useActionItems';
+import { useTasks } from '@/hooks/useTasks';
 import {
-  PHASES,
-  STATUSES,
+  TASK_STATUSES,
   PRIORITIES,
-  type WorkflowPhase,
-  type ProjectStatus,
+  type TaskStatus,
   type Priority,
 } from '@/lib/constants';
 import { StatsRow, type StatItem } from './StatsRow';
@@ -40,14 +39,14 @@ import {
 export function TeamDashboard() {
   const { user } = useAuth();
 
-  // My assigned projects
+  // My assigned tasks
+  const { data: myTasks = [] } = useTasks({ assignedTo: user?.id });
+
+  // My assigned campaigns (for stat count)
   const { data: myProjects = [] } = useProjects({
     assignedTo: user?.id,
     includeCompleted: false,
   });
-
-  // All projects for stats
-  const { data: allProjects = [] } = useProjects({ includeCompleted: false });
 
   const { data: actionItems = [], isLoading: actionItemsLoading } = useActionItems({
     forRole: 'team',
@@ -56,41 +55,33 @@ export function TeamDashboard() {
   // Stats
   const dueThisWeek = useMemo(() => {
     const now = new Date();
-    return myProjects.filter((p) => {
-      const dueStr = p.phase_due_date || p.target_date;
-      if (!dueStr) return false;
-      const due = new Date(dueStr);
+    return myTasks.filter((t) => {
+      if (!t.due_date) return false;
+      const due = new Date(t.due_date);
       return differenceInDays(due, now) <= 7 && differenceInDays(due, now) >= 0;
     });
-  }, [myProjects]);
+  }, [myTasks]);
 
-  const myBlocked = useMemo(
-    () => myProjects.filter((p) => p.is_blocked),
-    [myProjects],
+  const blockedTasks = useMemo(
+    () => myTasks.filter((t) => t.status === 'blocked'),
+    [myTasks],
   );
 
-  const myReview = useMemo(
-    () => myProjects.filter((p) => p.status === 'review'),
-    [myProjects],
-  );
-
-  // Sort my tasks by due date (soonest first, no-date last)
+  // Sort tasks by due date (soonest first, no-date last)
   const sortedTasks = useMemo(() => {
-    return [...myProjects].sort((a, b) => {
-      const aDate = a.phase_due_date || a.target_date;
-      const bDate = b.phase_due_date || b.target_date;
-      if (!aDate && !bDate) return 0;
-      if (!aDate) return 1;
-      if (!bDate) return -1;
-      return new Date(aDate).getTime() - new Date(bDate).getTime();
+    return [...myTasks].sort((a, b) => {
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
     });
-  }, [myProjects]);
+  }, [myTasks]);
 
   const stats: StatItem[] = [
     {
-      label: 'My Campaigns',
-      value: myProjects.length,
-      icon: FolderKanban,
+      label: 'My Tasks',
+      value: myTasks.length,
+      icon: CheckSquare,
     },
     {
       label: 'Due This Week',
@@ -100,14 +91,14 @@ export function TeamDashboard() {
     },
     {
       label: 'Blocked',
-      value: myBlocked.length,
+      value: blockedTasks.length,
       icon: Ban,
-      accent: myBlocked.length > 0 ? 'destructive' : 'default',
+      accent: blockedTasks.length > 0 ? 'destructive' : 'default',
     },
     {
-      label: 'In Review',
-      value: myReview.length,
-      icon: Eye,
+      label: 'My Campaigns',
+      value: myProjects.length,
+      icon: FolderKanban,
     },
   ];
 
@@ -130,22 +121,21 @@ export function TeamDashboard() {
             <CardContent className="pt-0">
               {sortedTasks.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground/60 text-xs">
-                  No campaigns assigned
+                  No tasks assigned to you
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {sortedTasks.map((project) => {
-                    const phase = PHASES[project.phase as WorkflowPhase] || PHASES.shaping;
-                    const PhaseIcon = phase.icon;
-                    const status = STATUSES[(project.status === 'revision' ? 'in_progress' : project.status) as ProjectStatus] || STATUSES.queued;
-                    const priority = PRIORITIES[(project.priority as Priority) || 'normal'];
-                    const dueInfo = getDueInfo(project.phase_due_date || project.target_date);
+                  {sortedTasks.slice(0, 10).map((task) => {
+                    const priority = PRIORITIES[(task.priority as Priority) || 'normal'];
+                    const statusConfig = TASK_STATUSES[(task.status as TaskStatus) || 'todo'];
+                    const StatusIcon = statusConfig.icon;
+                    const dueInfo = getDueInfo(task.due_date);
 
                     return (
                       <Link
-                        key={project.id}
-                        to={`/projects/${project.id}`}
-                        className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors group"
+                        key={task.id}
+                        to={`/projects/${task.project_id}`}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg hover:bg-muted/50 transition-colors group"
                       >
                         {/* Priority dot */}
                         <Tooltip>
@@ -157,29 +147,25 @@ export function TeamDashboard() {
                           </TooltipContent>
                         </Tooltip>
 
-                        {/* Name + company */}
+                        {/* Title + campaign */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{project.name}</p>
+                          <p className="text-sm font-medium truncate">{task.title}</p>
                           <p className="text-[11px] text-muted-foreground truncate">
-                            {project.company_name}
+                            {task.project_name}
+                            {task.company_name && (
+                              <span className="text-muted-foreground/60"> &middot; {task.company_name}</span>
+                            )}
                           </p>
                         </div>
 
-                        {/* Phase badge */}
+                        {/* Status badge */}
                         <Badge
                           variant="secondary"
-                          className={`text-[10px] h-5 px-1.5 gap-1 font-medium shrink-0 ${phase.color}`}
+                          className={`text-[10px] h-5 px-1.5 gap-1 font-medium shrink-0 ${statusConfig.color}`}
                         >
-                          <PhaseIcon className="h-3 w-3" />
-                          {phase.label}
+                          <StatusIcon className="h-3 w-3" />
+                          {statusConfig.label}
                         </Badge>
-
-                        {/* Blocked indicator */}
-                        {project.is_blocked && (
-                          <Badge variant="destructive" className="text-[10px] h-5 px-1.5 shrink-0">
-                            Blocked
-                          </Badge>
-                        )}
 
                         {/* Due date */}
                         {dueInfo && (
@@ -193,6 +179,15 @@ export function TeamDashboard() {
                       </Link>
                     );
                   })}
+                  {sortedTasks.length > 10 && (
+                    <div className="text-center pt-1">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" asChild>
+                        <Link to="/kanban">
+                          +{sortedTasks.length - 10} more <ArrowRight className="ml-1 h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -213,7 +208,7 @@ export function TeamDashboard() {
 
 // ── Helper ──────────────────────────────────────────────────────────────
 
-function getDueInfo(dateStr: string | null) {
+function getDueInfo(dateStr: string | null | undefined) {
   if (!dateStr) return null;
   const date = new Date(dateStr);
 
