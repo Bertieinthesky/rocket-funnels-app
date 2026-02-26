@@ -26,8 +26,16 @@ export function ActivityTab({ companyId }: ActivityTabProps) {
 
   return (
     <div className="space-y-4">
-      {/* Post Update Form */}
-      <CompanyUpdateForm companyId={companyId} />
+      {/* Header with Post Update button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Activity</h3>
+          <p className="text-sm text-muted-foreground">
+            Updates, action items, and milestones for this client.
+          </p>
+        </div>
+        <CompanyUpdateForm companyId={companyId} />
+      </div>
 
       {/* Activity Feed */}
       {items.length === 0 ? (
@@ -36,7 +44,7 @@ export function ActivityTab({ companyId }: ActivityTabProps) {
             <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="font-medium">No activity yet</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Post an update above or activity from campaigns and tasks will appear here.
+              Post an update or activity from campaigns and tasks will appear here.
             </p>
           </CardContent>
         </Card>

@@ -95,10 +95,7 @@ export default function ClientActivity() {
           </div>
         </div>
 
-        {/* Post Update */}
-        {id && <CompanyUpdateForm companyId={id} />}
-
-        {/* Filters */}
+        {/* Filters + Post Update */}
         <div className="flex items-center gap-3 flex-wrap">
           <Select
             value={typeFilter}
@@ -135,6 +132,10 @@ export default function ClientActivity() {
           <Badge variant="secondary" className="text-[10px] h-6 px-2">
             {items.length} {items.length === 1 ? 'item' : 'items'}
           </Badge>
+
+          <div className="ml-auto">
+            {id && <CompanyUpdateForm companyId={id} />}
+          </div>
         </div>
 
         {/* Activity Feed */}
