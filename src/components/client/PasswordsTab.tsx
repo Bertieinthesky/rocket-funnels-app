@@ -325,7 +325,10 @@ export function PasswordsTab({ companyId }: PasswordsTabProps) {
                       )}
 
                       {/* Password value */}
-                      <div className="flex items-center gap-1.5">
+                      <div
+                        className="group/pw flex items-center gap-1.5 cursor-pointer"
+                        onClick={() => toggleReveal(cred.id)}
+                      >
                         <code
                           className={`text-sm px-2 py-0.5 rounded bg-muted font-mono ${
                             !isRevealed ? 'tracking-wider' : ''
@@ -333,6 +336,12 @@ export function PasswordsTab({ companyId }: PasswordsTabProps) {
                         >
                           {isRevealed ? cred.value : maskValue(cred.value)}
                         </code>
+                        {!isRevealed && (
+                          <Eye className="h-3 w-3 text-muted-foreground opacity-0 group-hover/pw:opacity-100 transition-opacity" />
+                        )}
+                        {isRevealed && (
+                          <EyeOff className="h-3 w-3 text-muted-foreground opacity-0 group-hover/pw:opacity-100 transition-opacity" />
+                        )}
                       </div>
 
                       {/* Login URL */}
