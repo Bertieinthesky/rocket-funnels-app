@@ -39,9 +39,11 @@ import {
   Eye,
   AlertCircle,
   Rocket,
+  Clock,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { GlobalActions } from './GlobalActions';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -103,6 +105,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { to: '/projects', icon: FolderKanban, label: 'Projects' },
     { to: '/kanban', icon: Kanban, label: 'Tasks' },
     { to: '/action-items', icon: AlertCircle, label: 'Action Items' },
+    { to: '/timesheets', icon: Clock, label: 'Timesheets' },
     { to: '/files', icon: FileText, label: 'Files' },
   ];
 
@@ -112,6 +115,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { to: '/projects', icon: FolderKanban, label: 'Projects' },
     { to: '/kanban', icon: Kanban, label: 'Tasks' },
     { to: '/action-items', icon: AlertCircle, label: 'Action Items' },
+    { to: '/timesheets', icon: Clock, label: 'Timesheets' },
     { to: '/files', icon: FileText, label: 'Files' },
     { to: '/users', icon: Users, label: 'Users' },
     { to: '/settings', icon: Settings, label: 'Settings' },
@@ -241,6 +245,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Badge>
             )}
             <div className="flex-1" />
+            <GlobalActions />
             <NotificationCenter />
           </header>
           <main className="flex-1 p-4 md:p-6">

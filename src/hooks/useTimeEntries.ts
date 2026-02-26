@@ -7,6 +7,7 @@ export type TimeEntry = Tables<'time_entries'> & {
   user_email?: string | null;
   project_name?: string | null;
   task_title?: string | null;
+  company_name?: string | null;
 };
 
 interface UseTimeEntriesOptions {
@@ -14,6 +15,7 @@ interface UseTimeEntriesOptions {
   userId?: string;
   startDate?: string;
   endDate?: string;
+  fetchAll?: boolean;
 }
 
 export function useTimeEntries(options: UseTimeEntriesOptions = {}) {
@@ -81,6 +83,19 @@ export function useTimeEntries(options: UseTimeEntriesOptions = {}) {
         taskMap = new Map((tasks || []).map((t) => [t.id, t.title]));
       }
 
+      // Batch fetch company names
+      const companyIds = [
+        ...new Set(entries.map((e) => e.company_id)),
+      ];
+      let companyMap = new Map<string, string>();
+      if (companyIds.length > 0) {
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id, name')
+          .in('id', companyIds);
+        companyMap = new Map((companies || []).map((c) => [c.id, c.name]));
+      }
+
       return entries.map((entry) => {
         const profile = profileMap.get(entry.user_id);
         return {
@@ -91,10 +106,11 @@ export function useTimeEntries(options: UseTimeEntriesOptions = {}) {
             ? projectMap.get(entry.project_id) || null
             : null,
           task_title: entry.task_id ? taskMap.get(entry.task_id) || null : null,
+          company_name: companyMap.get(entry.company_id) || null,
         } as TimeEntry;
       });
     },
-    enabled: !!options.companyId || !!options.userId,
+    enabled: options.fetchAll || !!options.companyId || !!options.userId,
   });
 }
 
@@ -134,6 +150,38 @@ export function useDeleteTimeEntry() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('time_entries').delete().eq('id', id);
       if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['time_entries'] });
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['company'] });
+    },
+  });
+}
+
+export function useCreateBatchTimeEntries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (entries: Array<{
+      company_id: string;
+      user_id: string;
+      hours: number;
+      date: string;
+      description?: string;
+      project_id?: string | null;
+      task_id?: string | null;
+      is_deliverable?: boolean;
+      deliverable_link?: string | null;
+      deliverable_link_type?: string | null;
+      review_type?: string | null;
+    }>) => {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .insert(entries)
+        .select();
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['time_entries'] });

@@ -10,13 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CompanyInfoTab } from '@/components/client/CompanyInfoTab';
-import { ClientNotesTab } from '@/components/client/ClientNotesTab';
 import { FileManagerTab } from '@/components/client/FileManagerTab';
 import { ActivityTab } from '@/components/client/ActivityTab';
 import { HourTracker } from '@/components/client/HourTracker';
 import { PasswordsTab } from '@/components/client/PasswordsTab';
-import { ClientBriefTab } from '@/components/client/ClientBriefTab';
+import { InformationTab } from '@/components/client/InformationTab';
 import { LogTimeDialog } from '@/components/time/LogTimeDialog';
 import { TimeEntriesTable } from '@/components/time/TimeEntriesTable';
 import {
@@ -32,7 +30,6 @@ import {
   Settings,
   Plus,
   Building2,
-  StickyNote,
   Activity,
   KeyRound,
   Clock,
@@ -54,7 +51,11 @@ export default function ClientDetail() {
   const { isTeam, isAdmin } = useAuth();
   const { canEditCompanyInfo } = usePermissions();
   const [logTimeOpen, setLogTimeOpen] = useState(false);
-  const initialTab = searchParams.get('tab') || 'activity';
+  const rawTab = searchParams.get('tab') || 'activity';
+  // Legacy tab params → consolidated information tab
+  const initialTab = ['company-info', 'brief', 'notes'].includes(rawTab)
+    ? 'information'
+    : rawTab;
 
   const { data: company, isLoading: companyLoading, refetch: refetchCompany } = useCompany(id);
   const { data: projects = [], isLoading: projectsLoading } = useProjects({
@@ -197,23 +198,15 @@ export default function ClientDetail() {
           <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="activity" className="gap-1.5">
               <Activity className="h-3.5 w-3.5" />
-              Activity
+              Overview
             </TabsTrigger>
             <TabsTrigger value="projects" className="gap-1.5">
               <FolderKanban className="h-3.5 w-3.5" />
               Projects ({projects.length})
             </TabsTrigger>
-            <TabsTrigger value="company-info" className="gap-1.5">
+            <TabsTrigger value="information" className="gap-1.5">
               <Building2 className="h-3.5 w-3.5" />
-              Info
-            </TabsTrigger>
-            <TabsTrigger value="brief" className="gap-1.5">
-              <FileText className="h-3.5 w-3.5" />
-              Brief
-            </TabsTrigger>
-            <TabsTrigger value="notes" className="gap-1.5">
-              <StickyNote className="h-3.5 w-3.5" />
-              Notes
+              Information
             </TabsTrigger>
             <TabsTrigger value="files" className="gap-1.5">
               <FileText className="h-3.5 w-3.5" />
@@ -320,19 +313,13 @@ export default function ClientDetail() {
             )}
           </TabsContent>
 
-          {/* Company Info */}
-          <TabsContent value="company-info">
-            <CompanyInfoTab company={company} onUpdate={() => refetchCompany()} />
-          </TabsContent>
-
-          {/* Client Brief */}
-          <TabsContent value="brief">
-            <ClientBriefTab company={company} />
-          </TabsContent>
-
-          {/* Notes */}
-          <TabsContent value="notes">
-            <ClientNotesTab companyId={company.id} />
+          {/* Information (Info + Brief + Notes) */}
+          <TabsContent value="information">
+            <InformationTab
+              company={company}
+              companyId={company.id}
+              onUpdate={() => refetchCompany()}
+            />
           </TabsContent>
 
           {/* Files */}

@@ -14,6 +14,10 @@ import {
   ChevronRight,
   ChevronDown,
   ExternalLink,
+  Clock,
+  Upload,
+  KeyRound,
+  StickyNote,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { ActivityItem, ActivityType } from '@/hooks/useActivityFeed';
@@ -78,6 +82,30 @@ const TYPE_CONFIG: Record<
     label: 'Approved',
     badgeVariant: 'outline',
     bgClass: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+  },
+  hours_logged: {
+    icon: Clock,
+    label: 'Hours Logged',
+    badgeVariant: 'outline',
+    bgClass: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
+  },
+  file_uploaded: {
+    icon: Upload,
+    label: 'File Uploaded',
+    badgeVariant: 'outline',
+    bgClass: 'bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400',
+  },
+  credential_added: {
+    icon: KeyRound,
+    label: 'Credential Added',
+    badgeVariant: 'outline',
+    bgClass: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+  },
+  note_added: {
+    icon: StickyNote,
+    label: 'Note Added',
+    badgeVariant: 'outline',
+    bgClass: 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400',
   },
 };
 

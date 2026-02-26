@@ -34,6 +34,10 @@ const TYPE_OPTIONS: { label: string; value: ActivityType | 'all' }[] = [
   { label: 'Tasks Done', value: 'task_completed' },
   { label: 'Projects Done', value: 'project_completed' },
   { label: 'Approved', value: 'deliverable_approved' },
+  { label: 'Hours Logged', value: 'hours_logged' },
+  { label: 'Files Uploaded', value: 'file_uploaded' },
+  { label: 'Credentials Added', value: 'credential_added' },
+  { label: 'Notes Added', value: 'note_added' },
 ];
 
 export default function ClientActivity() {

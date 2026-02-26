@@ -20,6 +20,7 @@ import Kanban from "./pages/Kanban";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import ActionItems from "./pages/ActionItems";
+import Timesheets from "./pages/Timesheets";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -132,6 +133,11 @@ const AppRoutes = () => (
     <Route path="/action-items" element={
       <ProtectedRoute>
         <ActionItems />
+      </ProtectedRoute>
+    } />
+    <Route path="/timesheets" element={
+      <ProtectedRoute>
+        <Timesheets />
       </ProtectedRoute>
     } />
     <Route path="/users" element={

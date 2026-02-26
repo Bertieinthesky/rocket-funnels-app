@@ -567,6 +567,47 @@ export type Database = {
           },
         ]
       }
+      reminders: {
+        Row: {
+          id: string
+          company_id: string
+          user_id: string
+          content: string
+          due_date: string | null
+          is_completed: boolean
+          completed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          user_id: string
+          content: string
+          due_date?: string | null
+          is_completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          user_id?: string
+          content?: string
+          due_date?: string | null
+          is_completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           assigned_to: string | null
@@ -776,6 +817,10 @@ export type Database = {
           description: string | null
           date: string
           created_at: string
+          is_deliverable: boolean
+          deliverable_link: string | null
+          deliverable_link_type: string | null
+          review_type: string | null
         }
         Insert: {
           id?: string
@@ -787,6 +832,10 @@ export type Database = {
           description?: string | null
           date?: string
           created_at?: string
+          is_deliverable?: boolean
+          deliverable_link?: string | null
+          deliverable_link_type?: string | null
+          review_type?: string | null
         }
         Update: {
           id?: string
@@ -798,6 +847,10 @@ export type Database = {
           description?: string | null
           date?: string
           created_at?: string
+          is_deliverable?: boolean
+          deliverable_link?: string | null
+          deliverable_link_type?: string | null
+          review_type?: string | null
         }
         Relationships: [
           {

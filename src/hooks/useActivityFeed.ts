@@ -9,7 +9,11 @@ export type ActivityType =
   | 'deliverable_review'
   | 'task_completed'
   | 'project_completed'
-  | 'deliverable_approved';
+  | 'deliverable_approved'
+  | 'hours_logged'
+  | 'file_uploaded'
+  | 'credential_added'
+  | 'note_added';
 
 export interface ActivityItem {
   id: string;
@@ -62,6 +66,10 @@ export function useActivityFeed({
         completedTasksRes,
         completedProjectsRes,
         approvedDeliverablesRes,
+        timeEntriesRes,
+        fileUploadsRes,
+        credentialsRes,
+        notesRes,
       ] = await Promise.all([
         // 1. Company updates
         supabase
@@ -133,18 +141,55 @@ export function useActivityFeed({
           .eq('is_deliverable', true)
           .eq('is_approved', true)
           .gte('created_at', cutoffISO),
+
+        // 9. Time entries (hours logged)
+        supabase
+          .from('time_entries')
+          .select('id, hours, description, date, created_at, user_id, project_id, company_id')
+          .eq('company_id', companyId)
+          .gte('created_at', cutoffISO)
+          .order('created_at', { ascending: false }),
+
+        // 10. File uploads
+        supabase
+          .from('files')
+          .select('id, name, title, uploaded_by, company_id, project_id, created_at')
+          .eq('company_id', companyId)
+          .gte('created_at', cutoffISO)
+          .order('created_at', { ascending: false }),
+
+        // 11. Credentials added
+        supabase
+          .from('company_credentials')
+          .select('id, label, created_by, created_at')
+          .eq('company_id', companyId)
+          .gte('created_at', cutoffISO)
+          .order('created_at', { ascending: false }),
+
+        // 12. Notes added
+        supabase
+          .from('client_notes')
+          .select('id, content, category, created_by, created_at')
+          .eq('company_id', companyId)
+          .gte('created_at', cutoffISO)
+          .order('created_at', { ascending: false }),
       ]);
 
-      // Batch fetch author profiles for company updates
+      // Batch fetch author profiles for all sources
       const companyUpdates = companyUpdatesRes.data || [];
-      const authorIds = [...new Set(companyUpdates.map(u => u.author_id))];
-      let profileMap = new Map<string, { full_name: string | null }>();
+      const allAuthorIds = new Set<string>(companyUpdates.map(u => u.author_id));
+      for (const e of timeEntriesRes.data || []) { if (e.user_id) allAuthorIds.add(e.user_id); }
+      for (const f of fileUploadsRes.data || []) { if (f.uploaded_by) allAuthorIds.add(f.uploaded_by); }
+      for (const c of credentialsRes.data || []) { if (c.created_by) allAuthorIds.add(c.created_by); }
+      for (const n of notesRes.data || []) { if (n.created_by) allAuthorIds.add(n.created_by); }
 
-      if (authorIds.length > 0) {
+      let profileMap = new Map<string, { full_name: string | null }>();
+      const authorIdArr = [...allAuthorIds];
+      if (authorIdArr.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', authorIds);
+          .in('id', authorIdArr);
         profileMap = new Map((profiles || []).map(p => [p.id, p]));
       }
 
@@ -308,6 +353,92 @@ export function useActivityFeed({
             company_id: companyId,
             created_at: d.created_at,
             raw: d,
+          });
+        }
+      }
+
+      // 9. Time entries (hours logged)
+      if (timeEntriesRes.data) {
+        // Batch fetch project names for time entries
+        const teProjectIds = [...new Set(
+          timeEntriesRes.data.map(t => t.project_id).filter(Boolean) as string[]
+        )];
+        let teProjectMap = new Map<string, string>();
+        if (teProjectIds.length > 0) {
+          const { data: teProjects } = await supabase
+            .from('projects')
+            .select('id, name')
+            .in('id', teProjectIds);
+          teProjectMap = new Map((teProjects || []).map(p => [p.id, p.name]));
+        }
+
+        for (const entry of timeEntriesRes.data) {
+          const profile = profileMap.get(entry.user_id);
+          items.push({
+            id: `time-${entry.id}`,
+            type: 'hours_logged',
+            title: `${profile?.full_name || 'Team member'} logged ${entry.hours}h`,
+            description: entry.description || `${entry.hours} hours logged`,
+            author_name: profile?.full_name || undefined,
+            project_id: entry.project_id || undefined,
+            project_name: entry.project_id ? teProjectMap.get(entry.project_id) : undefined,
+            company_id: companyId,
+            created_at: entry.created_at,
+            raw: entry,
+          });
+        }
+      }
+
+      // 10. File uploads
+      if (fileUploadsRes.data) {
+        for (const file of fileUploadsRes.data) {
+          const profile = file.uploaded_by ? profileMap.get(file.uploaded_by) : undefined;
+          items.push({
+            id: `file-upload-${file.id}`,
+            type: 'file_uploaded',
+            title: `${profile?.full_name || 'Team member'} uploaded a file`,
+            description: file.title || file.name,
+            author_name: profile?.full_name || undefined,
+            file_id: file.id,
+            file_name: file.title || file.name,
+            project_id: file.project_id || undefined,
+            company_id: companyId,
+            created_at: file.created_at,
+            raw: file,
+          });
+        }
+      }
+
+      // 11. Credentials added
+      if (credentialsRes.data) {
+        for (const cred of credentialsRes.data) {
+          const profile = cred.created_by ? profileMap.get(cred.created_by) : undefined;
+          items.push({
+            id: `cred-${cred.id}`,
+            type: 'credential_added',
+            title: `${profile?.full_name || 'Team member'} added a credential`,
+            description: cred.label,
+            author_name: profile?.full_name || undefined,
+            company_id: companyId,
+            created_at: cred.created_at,
+            raw: cred,
+          });
+        }
+      }
+
+      // 12. Notes added
+      if (notesRes.data) {
+        for (const note of notesRes.data) {
+          const profile = note.created_by ? profileMap.get(note.created_by) : undefined;
+          items.push({
+            id: `note-${note.id}`,
+            type: 'note_added',
+            title: `${profile?.full_name || 'Team member'} added a note`,
+            description: note.content.slice(0, 200),
+            author_name: profile?.full_name || undefined,
+            company_id: companyId,
+            created_at: note.created_at,
+            raw: note,
           });
         }
       }
