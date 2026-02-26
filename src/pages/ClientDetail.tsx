@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CompanyInfoTab } from '@/components/client/CompanyInfoTab';
 import { ClientNotesTab } from '@/components/client/ClientNotesTab';
 import { FileManagerTab } from '@/components/client/FileManagerTab';
-import { ActionItemsTab } from '@/components/client/ActionItemsTab';
+import { ActivityTab } from '@/components/client/ActivityTab';
 import { HourTracker } from '@/components/client/HourTracker';
 import { PasswordsTab } from '@/components/client/PasswordsTab';
 import { ClientBriefTab } from '@/components/client/ClientBriefTab';
@@ -33,7 +33,7 @@ import {
   Plus,
   Building2,
   StickyNote,
-  AlertCircle,
+  Activity,
   KeyRound,
   Clock,
   Loader2,
@@ -54,7 +54,7 @@ export default function ClientDetail() {
   const { isTeam, isAdmin } = useAuth();
   const { canEditCompanyInfo } = usePermissions();
   const [logTimeOpen, setLogTimeOpen] = useState(false);
-  const initialTab = searchParams.get('tab') || 'action-items';
+  const initialTab = searchParams.get('tab') || 'activity';
 
   const { data: company, isLoading: companyLoading, refetch: refetchCompany } = useCompany(id);
   const { data: projects = [], isLoading: projectsLoading } = useProjects({
@@ -195,9 +195,9 @@ export default function ClientDetail() {
         {/* Tabs */}
         <Tabs defaultValue={initialTab} className="space-y-4">
           <TabsList className="flex-wrap h-auto gap-1">
-            <TabsTrigger value="action-items" className="gap-1.5">
-              <AlertCircle className="h-3.5 w-3.5" />
-              Action Items
+            <TabsTrigger value="activity" className="gap-1.5">
+              <Activity className="h-3.5 w-3.5" />
+              Activity
             </TabsTrigger>
             <TabsTrigger value="projects" className="gap-1.5">
               <FolderKanban className="h-3.5 w-3.5" />
@@ -231,9 +231,9 @@ export default function ClientDetail() {
             )}
           </TabsList>
 
-          {/* Action Items */}
-          <TabsContent value="action-items">
-            <ActionItemsTab companyId={company.id} />
+          {/* Activity */}
+          <TabsContent value="activity">
+            <ActivityTab companyId={company.id} />
           </TabsContent>
 
           {/* Projects */}

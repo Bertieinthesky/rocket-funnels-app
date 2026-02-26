@@ -15,6 +15,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import Files from "./pages/Files";
 import Clients from "./pages/Clients";
 import ClientDetail from "./pages/ClientDetail";
+import ClientActivity from "./pages/ClientActivity";
 import Kanban from "./pages/Kanban";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
@@ -116,6 +117,11 @@ const AppRoutes = () => (
     <Route path="/clients/:id" element={
       <ProtectedRoute>
         <ClientDetail />
+      </ProtectedRoute>
+    } />
+    <Route path="/clients/:id/activity" element={
+      <ProtectedRoute>
+        <ClientActivity />
       </ProtectedRoute>
     } />
     <Route path="/kanban" element={

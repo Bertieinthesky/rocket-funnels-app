@@ -11,9 +11,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { 
-  Plus, 
-  FileText, 
+import { NoteCommentThread } from './NoteCommentThread';
+import {
+  Plus,
+  FileText,
   MoreVertical,
   Pencil,
   Trash2,
@@ -338,6 +339,7 @@ export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
                       </DropdownMenu>
                     )}
                   </div>
+                  <NoteCommentThread noteId={note.id} />
                 </CardContent>
               </Card>
             );
