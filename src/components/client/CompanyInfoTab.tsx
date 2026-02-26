@@ -4,21 +4,34 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
 import { HourTracker } from './HourTracker';
-import { 
-  Pencil, 
-  Save, 
-  X, 
-  Mail, 
-  Globe, 
+import {
+  Pencil,
+  Save,
+  X,
+  Mail,
+  Globe,
   DollarSign,
   Clock,
   Calendar,
-  User
+  User,
+  Loader2,
 } from 'lucide-react';
 
 interface Company {
@@ -52,7 +65,7 @@ interface FormData {
   retainer_type: string;
 }
 
-export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
+export function CompanyInfoCards({ company, onUpdate }: CompanyInfoTabProps) {
   const { toast } = useToast();
   const { canEditCompanyInfo } = usePermissions();
   const [isEditing, setIsEditing] = useState(false);
@@ -82,18 +95,14 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
     setIsEditing(true);
   };
 
-  const cancelEditing = () => {
-    setIsEditing(false);
-  };
-
   const validateEmail = (email: string) => {
-    if (!email) return true; // allow empty
+    if (!email) return true;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
   const validateUrl = (url: string) => {
-    if (!url) return true; // allow empty
+    if (!url) return true;
     try {
       new URL(url.startsWith('http') ? url : `https://${url}`);
       return true;
@@ -103,7 +112,6 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
   };
 
   const saveChanges = async () => {
-    // Validation
     if (!validateEmail(formData.contact_email)) {
       toast({ title: 'Invalid contact email format', variant: 'destructive' });
       return;
@@ -161,77 +169,61 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
   const hoursUsed = company.hours_used || 0;
   const hoursAllocated = company.hours_allocated || 0;
 
-  // Edit mode
-  if (isEditing) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Edit Company Information</CardTitle>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={cancelEditing} disabled={saving}>
-              <X className="h-4 w-4 mr-1" />
-              Cancel
-            </Button>
-            <Button size="sm" onClick={saveChanges} disabled={saving}>
-              <Save className="h-4 w-4 mr-1" />
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 sm:grid-cols-2">
-            {/* POC Name */}
-            <div className="space-y-2">
-              <Label htmlFor="poc_name">Point of Contact Name</Label>
-              <Input
-                id="poc_name"
-                value={formData.poc_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, poc_name: e.target.value }))}
-                placeholder="John Smith"
-              />
+  return (
+    <>
+      {/* Edit Dialog */}
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Company Information</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1 max-h-[70vh] overflow-y-auto">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="poc_name">Point of Contact</Label>
+                <Input
+                  id="poc_name"
+                  value={formData.poc_name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, poc_name: e.target.value }))}
+                  placeholder="John Smith"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact_email">Contact Email</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  value={formData.contact_email}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, contact_email: e.target.value }))}
+                  placeholder="contact@company.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invoicing_email">Invoicing Email</Label>
+                <Input
+                  id="invoicing_email"
+                  type="email"
+                  value={formData.invoicing_email}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, invoicing_email: e.target.value }))}
+                  placeholder="billing@company.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="company_website">Company Website</Label>
+                <Input
+                  id="company_website"
+                  value={formData.company_website}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, company_website: e.target.value }))}
+                  placeholder="https://company.com"
+                />
+              </div>
             </div>
 
-            {/* Contact Email */}
-            <div className="space-y-2">
-              <Label htmlFor="contact_email">Contact Email</Label>
-              <Input
-                id="contact_email"
-                type="email"
-                value={formData.contact_email}
-                onChange={(e) => setFormData(prev => ({ ...prev, contact_email: e.target.value }))}
-                placeholder="contact@company.com"
-              />
-            </div>
-
-            {/* Invoicing Email */}
-            <div className="space-y-2">
-              <Label htmlFor="invoicing_email">Invoicing Email</Label>
-              <Input
-                id="invoicing_email"
-                type="email"
-                value={formData.invoicing_email}
-                onChange={(e) => setFormData(prev => ({ ...prev, invoicing_email: e.target.value }))}
-                placeholder="billing@company.com"
-              />
-            </div>
-
-            {/* Company Website */}
-            <div className="space-y-2">
-              <Label htmlFor="company_website">Company Website</Label>
-              <Input
-                id="company_website"
-                value={formData.company_website}
-                onChange={(e) => setFormData(prev => ({ ...prev, company_website: e.target.value }))}
-                placeholder="https://company.com"
-              />
-            </div>
-
-            {/* Client Type */}
             <div className="space-y-2">
               <Label htmlFor="retainer_type">Client Type</Label>
-              <Select 
-                value={formData.retainer_type} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, retainer_type: value }))}
+              <Select
+                value={formData.retainer_type}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, retainer_type: value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select client type" />
@@ -244,20 +236,18 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
               </Select>
             </div>
 
-            {/* Retainer Details Section - Only show for hourly clients */}
             {formData.retainer_type === 'hourly' && (
-              <div className="sm:col-span-2 pt-4 border-t">
-                <h3 className="text-sm font-medium text-muted-foreground mb-4">Retainer Details</h3>
-                <div className="grid gap-6 sm:grid-cols-3">
-                  {/* Payment Schedule */}
+              <div className="pt-2 border-t space-y-4">
+                <h3 className="text-sm font-medium text-muted-foreground">Retainer Details</h3>
+                <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="payment_schedule">Payment Schedule</Label>
-                    <Select 
-                      value={formData.payment_schedule} 
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, payment_schedule: value }))}
+                    <Select
+                      value={formData.payment_schedule}
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, payment_schedule: value }))}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select payment schedule" />
+                        <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="1st">1st of the month</SelectItem>
@@ -265,8 +255,6 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Monthly Hours */}
                   <div className="space-y-2">
                     <Label htmlFor="hours_allocated">Monthly Hours</Label>
                     <Input
@@ -274,12 +262,10 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
                       type="number"
                       min={1}
                       value={formData.hours_allocated}
-                      onChange={(e) => setFormData(prev => ({ ...prev, hours_allocated: e.target.value }))}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, hours_allocated: e.target.value }))}
                       placeholder="40"
                     />
                   </div>
-
-                  {/* Hourly Rate */}
                   <div className="space-y-2">
                     <Label htmlFor="hourly_rate">Hourly Rate ($)</Label>
                     <div className="relative">
@@ -290,7 +276,7 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
                         min={0.01}
                         step={0.01}
                         value={formData.hourly_rate}
-                        onChange={(e) => setFormData(prev => ({ ...prev, hourly_rate: e.target.value }))}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, hourly_rate: e.target.value }))}
                         placeholder="150.00"
                         className="pl-7"
                       />
@@ -299,115 +285,133 @@ export function CompanyInfoTab({ company, onUpdate }: CompanyInfoTabProps) {
                 </div>
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
-  // Read-only view
-  return (
-    <div className="grid gap-6 md:grid-cols-2">
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={saveChanges} disabled={saving}>
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <Save className="h-4 w-4 mr-1" />
+                )}
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Contact & Billing Details */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Contact & Billing Details</CardTitle>
+      <Card className="flex flex-col">
+        <CardHeader className="flex flex-row items-center justify-between shrink-0">
+          <CardTitle className="text-lg">Contact & Billing</CardTitle>
           {canEditCompanyInfo && (
             <Button variant="ghost" size="sm" onClick={startEditing}>
               <Pencil className="h-4 w-4 mr-1" />
-              Edit All
+              Edit
             </Button>
           )}
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="flex-1 space-y-3">
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <User className="h-4 w-4" />
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5" />
               Point of Contact
             </p>
-            <p className="font-medium">{company.poc_name || 'Not set'}</p>
+            <p className="text-sm font-medium">{company.poc_name || 'Not set'}</p>
           </div>
-
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Mail className="h-4 w-4" />
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5" />
               Contact Email
             </p>
-            <p className="font-medium">{company.contact_email || company.billing_email || 'Not set'}</p>
+            <p className="text-sm font-medium">{company.contact_email || company.billing_email || 'Not set'}</p>
           </div>
-
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Mail className="h-4 w-4" />
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5" />
               Invoicing Email
             </p>
-            <p className="font-medium">{company.invoicing_email || company.billing_email || 'Not set'}</p>
+            <p className="text-sm font-medium">{company.invoicing_email || company.billing_email || 'Not set'}</p>
           </div>
-
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Globe className="h-4 w-4" />
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" />
               Company Website
             </p>
             {company.company_website ? (
-              <a 
+              <a
                 href={company.company_website.startsWith('http') ? company.company_website : `https://${company.company_website}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-primary hover:underline"
+                className="text-sm font-medium text-primary hover:underline"
               >
                 {company.company_website}
               </a>
             ) : (
-              <p className="font-medium text-muted-foreground">Not set</p>
+              <p className="text-sm font-medium text-muted-foreground">Not set</p>
             )}
           </div>
-
         </CardContent>
       </Card>
 
-      {/* Retainer Details - Only show for hourly clients */}
-      {company.retainer_type === 'hourly' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Retainer Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Payment Schedule */}
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Payment Schedule
+      {/* Retainer / Client Type Details */}
+      <Card className="flex flex-col">
+        <CardHeader className="shrink-0">
+          <CardTitle className="text-lg">
+            {company.retainer_type === 'hourly' ? 'Retainer Details' : 'Client Type'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1 space-y-3">
+          {company.retainer_type === 'hourly' ? (
+            <>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Payment Schedule
+                </p>
+                {company.payment_schedule ? (
+                  <Badge variant="secondary">{company.payment_schedule} of the month</Badge>
+                ) : (
+                  <p className="text-sm font-medium text-muted-foreground">Not set</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5" />
+                  Hourly Rate
+                </p>
+                <p className="font-medium text-xl">
+                  ${company.hourly_rate?.toFixed(2) || '0.00'}
+                </p>
+              </div>
+              <div className="pt-1">
+                <HourTracker
+                  hoursUsed={hoursUsed}
+                  monthlyHours={hoursAllocated}
+                  showWarning={true}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-4 gap-2">
+              <Badge variant="secondary" className="text-sm px-3 py-1 capitalize">
+                {company.retainer_type === 'one_time' ? 'One-Time Project' : 'Unlimited'}
+              </Badge>
+              <p className="text-xs text-muted-foreground text-center">
+                {company.retainer_type === 'one_time'
+                  ? 'Billed per project, not on retainer.'
+                  : 'Unlimited scope — no hourly tracking.'}
               </p>
-              {company.payment_schedule ? (
-                <Badge variant="secondary">{company.payment_schedule} of the month</Badge>
-              ) : (
-                <p className="font-medium text-muted-foreground">Not set</p>
-              )}
             </div>
-
-            {/* Hourly Rate */}
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Hourly Rate
-              </p>
-              <p className="font-medium text-xl">
-                ${company.hourly_rate?.toFixed(2) || '0.00'}
-              </p>
-            </div>
-
-            {/* Hour Tracker with Traffic Light */}
-            <div className="pt-2">
-              <HourTracker 
-                hoursUsed={hoursUsed} 
-                monthlyHours={hoursAllocated}
-                showWarning={true}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }
+
+// Keep old export name for backward compatibility
+export const CompanyInfoTab = CompanyInfoCards;

@@ -6,9 +6,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { TimesheetFilters } from '@/components/time/TimesheetFilters';
 import { LogTimeDialog } from '@/components/time/LogTimeDialog';
-import { useTimeEntries } from '@/hooks/useTimeEntries';
+import { EditTimeEntryDialog } from '@/components/time/EditTimeEntryDialog';
+import { useTimeEntries, useDeleteTimeEntry, type TimeEntry } from '@/hooks/useTimeEntries';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { getBillingPeriod } from '@/lib/billing';
 import {
   Loader2,
   Clock,
@@ -16,6 +20,8 @@ import {
   ChevronDown,
   ChevronRight,
   Package,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 
@@ -33,6 +39,8 @@ function getInitials(name?: string | null, email?: string | null) {
 
 export default function Timesheets() {
   const now = new Date();
+  const { isAdmin, isTeam } = useAuth();
+  const { toast } = useToast();
   const [clientFilter, setClientFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
   const [startDate, setStartDate] = useState(
@@ -41,6 +49,7 @@ export default function Timesheets() {
   const [endDate, setEndDate] = useState(format(now, 'yyyy-MM-dd'));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [logTimeOpen, setLogTimeOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
 
   const { data: entries = [], isLoading } = useTimeEntries({
     fetchAll: true,
@@ -49,6 +58,29 @@ export default function Timesheets() {
   });
   const { data: companies = [] } = useCompanies({ filter: 'active' });
   const { data: teamMembers = [] } = useTeamMembers();
+  const deleteEntry = useDeleteTimeEntry();
+
+  // Build payment schedule lookup by company id
+  const paymentScheduleMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const c of companies) {
+      map.set(c.id, (c as any).payment_schedule ?? null);
+    }
+    return map;
+  }, [companies]);
+
+  const handleDelete = async (entry: TimeEntry) => {
+    try {
+      await deleteEntry.mutateAsync(entry.id);
+      toast({ title: 'Entry deleted', description: `${entry.hours}h removed.` });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete entry.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Client-side filtering
   const filtered = useMemo(() => {
@@ -221,39 +253,84 @@ export default function Timesheets() {
                               <th className="px-3 py-2 text-left font-medium">
                                 Description
                               </th>
-                              <th className="px-3 py-2 text-center font-medium">
-                                &nbsp;
+                              <th className="px-3 py-2 text-left font-medium">
+                                Billing Period
                               </th>
+                              {(isAdmin || isTeam) && (
+                                <th className="px-3 py-2 text-center font-medium">
+                                  Actions
+                                </th>
+                              )}
                             </tr>
                           </thead>
                           <tbody>
-                            {group.entries.map((entry) => (
-                              <tr
-                                key={entry.id}
-                                className="border-b last:border-0 hover:bg-muted/30"
-                              >
-                                <td className="px-3 py-2 whitespace-nowrap">
-                                  {format(new Date(entry.date), 'MMM d')}
-                                </td>
-                                <td className="px-3 py-2">
-                                  {entry.company_name || '—'}
-                                </td>
-                                <td className="px-3 py-2">
-                                  {entry.project_name || '—'}
-                                </td>
-                                <td className="px-3 py-2 text-right font-medium">
-                                  {entry.hours.toFixed(1)}
-                                </td>
-                                <td className="px-3 py-2 max-w-[200px] truncate">
-                                  {entry.description || '—'}
-                                </td>
-                                <td className="px-3 py-2 text-center">
-                                  {entry.is_deliverable && (
-                                    <Package className="h-3 w-3 text-primary inline-block" />
+                            {group.entries.map((entry) => {
+                              const billing = getBillingPeriod(
+                                entry.date,
+                                paymentScheduleMap.get(entry.company_id) ?? null,
+                              );
+                              return (
+                                <tr
+                                  key={entry.id}
+                                  className="border-b last:border-0 hover:bg-muted/30"
+                                >
+                                  <td className="px-3 py-2 whitespace-nowrap">
+                                    {format(new Date(entry.date), 'MMM d')}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {entry.company_name || '—'}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {entry.project_name || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-right font-medium">
+                                    {entry.hours.toFixed(1)}
+                                  </td>
+                                  <td className="px-3 py-2 max-w-[200px] truncate">
+                                    {entry.description || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap">
+                                    <Badge variant="outline" className="text-[10px] font-normal">
+                                      {billing.label}
+                                    </Badge>
+                                  </td>
+                                  {(isAdmin || isTeam) && (
+                                    <td className="px-3 py-2 text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        {entry.is_deliverable && (
+                                          <Package className="h-3 w-3 text-primary" />
+                                        )}
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingEntry(entry);
+                                          }}
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        {isAdmin && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDelete(entry);
+                                            }}
+                                            disabled={deleteEntry.isPending}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </td>
                                   )}
-                                </td>
-                              </tr>
-                            ))}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -267,6 +344,13 @@ export default function Timesheets() {
       </div>
 
       <LogTimeDialog open={logTimeOpen} onOpenChange={setLogTimeOpen} />
+      {editingEntry && (
+        <EditTimeEntryDialog
+          entry={editingEntry}
+          open={!!editingEntry}
+          onOpenChange={(open) => !open && setEditingEntry(null)}
+        />
+      )}
     </DashboardLayout>
   );
 }

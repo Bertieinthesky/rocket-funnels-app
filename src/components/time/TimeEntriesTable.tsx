@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -8,10 +9,13 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { EditTimeEntryDialog } from './EditTimeEntryDialog';
 import { useTimeEntries, useDeleteTimeEntry, type TimeEntry } from '@/hooks/useTimeEntries';
+import { useCompanies } from '@/hooks/useCompanies';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Clock, Loader2 } from 'lucide-react';
+import { getBillingPeriod } from '@/lib/billing';
+import { Trash2, Pencil, Clock, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface TimeEntriesTableProps {
@@ -19,10 +23,16 @@ interface TimeEntriesTableProps {
 }
 
 export function TimeEntriesTable({ companyId }: TimeEntriesTableProps) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isTeam } = useAuth();
   const { toast } = useToast();
   const { data: entries = [], isLoading } = useTimeEntries({ companyId });
+  const { data: companies = [] } = useCompanies({ filter: 'active' });
   const deleteEntry = useDeleteTimeEntry();
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+
+  const paymentSchedule = companies.find((c) => c.id === companyId)
+    ? ((companies.find((c) => c.id === companyId) as any)?.payment_schedule ?? null)
+    : null;
 
   const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
 
@@ -69,53 +79,74 @@ export function TimeEntriesTable({ companyId }: TimeEntriesTableProps) {
             <TableHead>Task</TableHead>
             <TableHead className="text-right">Hours</TableHead>
             <TableHead>Description</TableHead>
-            {isAdmin && <TableHead className="w-10" />}
+            <TableHead>Billing Period</TableHead>
+            {(isAdmin || isTeam) && <TableHead className="w-20" />}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {entries.map((entry) => (
-            <TableRow key={entry.id}>
-              <TableCell className="whitespace-nowrap text-sm">
-                {format(new Date(entry.date + 'T00:00:00'), 'MMM d, yyyy')}
-              </TableCell>
-              <TableCell className="text-sm">
-                {entry.user_name || entry.user_email || 'Unknown'}
-              </TableCell>
-              <TableCell className="text-sm">
-                {entry.project_name ? (
-                  <Badge variant="secondary" className="text-xs">
-                    {entry.project_name}
-                  </Badge>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </TableCell>
-              <TableCell className="text-sm max-w-[150px] truncate">
-                {entry.task_title || (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </TableCell>
-              <TableCell className="text-right font-medium text-sm">
-                {entry.hours}h
-              </TableCell>
-              <TableCell className="text-sm max-w-[200px] truncate text-muted-foreground">
-                {entry.description || '—'}
-              </TableCell>
-              {isAdmin && (
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDelete(entry)}
-                    disabled={deleteEntry.isPending}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+          {entries.map((entry) => {
+            const billing = getBillingPeriod(entry.date, paymentSchedule);
+            return (
+              <TableRow key={entry.id}>
+                <TableCell className="whitespace-nowrap text-sm">
+                  {format(new Date(entry.date + 'T00:00:00'), 'MMM d, yyyy')}
                 </TableCell>
-              )}
-            </TableRow>
-          ))}
+                <TableCell className="text-sm">
+                  {entry.user_name || entry.user_email || 'Unknown'}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {entry.project_name ? (
+                    <Badge variant="secondary" className="text-xs">
+                      {entry.project_name}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-sm max-w-[150px] truncate">
+                  {entry.task_title || (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-medium text-sm">
+                  {entry.hours}h
+                </TableCell>
+                <TableCell className="text-sm max-w-[200px] truncate text-muted-foreground">
+                  {entry.description || '—'}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <Badge variant="outline" className="text-[10px] font-normal">
+                    {billing.label}
+                  </Badge>
+                </TableCell>
+                {(isAdmin || isTeam) && (
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => setEditingEntry(entry)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDelete(entry)}
+                          disabled={deleteEntry.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
 
           {/* Total row */}
           <TableRow className="border-t-2 font-medium">
@@ -125,10 +156,18 @@ export function TimeEntriesTable({ companyId }: TimeEntriesTableProps) {
             <TableCell className="text-right text-sm">
               {totalHours.toFixed(1)}h
             </TableCell>
-            <TableCell colSpan={isAdmin ? 2 : 1} />
+            <TableCell colSpan={(isAdmin || isTeam) ? 3 : 2} />
           </TableRow>
         </TableBody>
       </Table>
+
+      {editingEntry && (
+        <EditTimeEntryDialog
+          entry={editingEntry}
+          open={!!editingEntry}
+          onOpenChange={(open) => !open && setEditingEntry(null)}
+        />
+      )}
     </div>
   );
 }

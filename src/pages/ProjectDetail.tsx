@@ -23,6 +23,7 @@ import { MessageThread } from '@/components/project/MessageThread';
 import { BlockDialog } from '@/components/project/BlockDialog';
 import { PhaseAdvancer } from '@/components/project/PhaseAdvancer';
 import { TaskList } from '@/components/tasks/TaskList';
+import { ProjectActivityTimeline } from '@/components/project/ProjectActivityTimeline';
 import {
   PHASES,
   PHASE_ORDER,
@@ -52,6 +53,7 @@ import {
   Link as LinkIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { CampaignQuickLinks } from '@/components/campaigns/CampaignQuickLinks';
 import { HealthBadge } from '@/components/campaigns/HealthBadge';
 import type { Update } from '@/hooks/useUpdates';
@@ -94,7 +96,7 @@ export default function ProjectDetail() {
   // Local state
   const [approving, setApproving] = useState<string | null>(null);
   const [changeRequestUpdate, setChangeRequestUpdate] = useState<Update | null>(null);
-  const [showAllUpdates, setShowAllUpdates] = useState(false);
+  const [viewMode, setViewMode] = useState<'board' | 'activity'>('board');
   const [headerStyle, setHeaderStyle] = useState<'A' | 'B'>('A');
 
   const canPostUpdates = isTeam || isAdmin;
@@ -819,165 +821,194 @@ export default function ProjectDetail() {
           </Card>
         )}
 
-        {/* ── MAIN LAYOUT: Content | Sidebar (Quick Links + Activity) */}
-        <div className="grid gap-4 md:grid-cols-[1fr_280px]">
-          {/* ── LEFT: Description + Tasks + Chat ────────────────────── */}
-          <div className="space-y-4">
-            {/* Description */}
-            {project.description && (
-              <Card>
-                <CardContent className="p-3">
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Description</p>
-                  <p className="text-sm whitespace-pre-wrap">{project.description}</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Tasks */}
-            <TaskList projectId={project.id} canEdit={canPostUpdates} />
-
-            {/* Chat + Team Update Form */}
-            <Card className="flex flex-col overflow-hidden">
-              <Tabs defaultValue="client-chat" className="flex flex-col flex-1">
-                <div className="border-b px-4 pt-3 pb-0 shrink-0 flex items-end justify-between">
-                  <TabsList className="h-9">
-                    <TabsTrigger value="client-chat" className="text-xs gap-1.5 h-8 px-4">
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      Client Chat
-                    </TabsTrigger>
-                    {canPostUpdates && (
-                      <TabsTrigger value="team-notes" className="text-xs gap-1.5 h-8 px-4">
-                        <StickyNote className="h-3.5 w-3.5" />
-                        Team Notes
-                      </TabsTrigger>
-                    )}
-                  </TabsList>
-                  {canPostUpdates && (
-                    <PostUpdateDialog
-                      projectId={project.id}
-                      onSubmit={handlePostUpdate}
-                      trigger={
-                        <Button variant="ghost" size="icon" className="h-8 w-8 mb-1">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      }
-                    />
-                  )}
-                </div>
-
-                <TabsContent value="client-chat" className="mt-0 flex-1 md:h-[440px]">
-                  <MessageThread projectId={project.id} isInternal={false} />
-                </TabsContent>
-
-                {canPostUpdates && (
-                  <TabsContent value="team-notes" className="mt-0 flex-1 md:h-[440px]">
-                    <MessageThread projectId={project.id} isInternal={true} />
-                  </TabsContent>
+        {/* ── MAIN LAYOUT: Board view ↔ Activity timeline with transition */}
+        <div className="relative min-h-[400px]">
+          {/* Board view */}
+          <div className={cn(
+            'transition-all duration-300 ease-in-out',
+            viewMode === 'board'
+              ? 'opacity-100 translate-y-0'
+              : 'opacity-0 -translate-y-2 pointer-events-none absolute inset-0',
+          )}>
+            <div className="grid gap-4 md:grid-cols-[1fr_280px]">
+              {/* ── LEFT: Description + Tasks + Chat ────────────────────── */}
+              <div className="space-y-4">
+                {/* Description */}
+                {project.description && (
+                  <Card>
+                    <CardContent className="p-3">
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Description</p>
+                      <p className="text-sm whitespace-pre-wrap">{project.description}</p>
+                    </CardContent>
+                  </Card>
                 )}
-              </Tabs>
 
-              {canPostUpdates && (
-                <div className="border-t">
-                  <TeamUpdateForm projectId={project.id} onSubmit={handlePostUpdate} />
-                </div>
-              )}
-            </Card>
-          </div>
+                {/* Tasks */}
+                <TaskList projectId={project.id} canEdit={canPostUpdates} />
 
-          {/* ── RIGHT SIDEBAR: Quick Links + Activity ────────────────── */}
-          <div className="flex flex-col gap-4">
-            {/* Quick Links */}
-            {project.company_id && (
-              <CampaignQuickLinks companyId={project.company_id} />
-            )}
+                {/* Chat + Team Update Form */}
+                <Card className="flex flex-col overflow-hidden">
+                  <Tabs defaultValue="client-chat" className="flex flex-col flex-1">
+                    <div className="border-b px-4 pt-3 pb-0 shrink-0 flex items-end justify-between">
+                      <TabsList className="h-9">
+                        <TabsTrigger value="client-chat" className="text-xs gap-1.5 h-8 px-4">
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          Client Chat
+                        </TabsTrigger>
+                        {canPostUpdates && (
+                          <TabsTrigger value="team-notes" className="text-xs gap-1.5 h-8 px-4">
+                            <StickyNote className="h-3.5 w-3.5" />
+                            Team Notes
+                          </TabsTrigger>
+                        )}
+                      </TabsList>
+                      {canPostUpdates && (
+                        <PostUpdateDialog
+                          projectId={project.id}
+                          onSubmit={handlePostUpdate}
+                          trigger={
+                            <Button variant="ghost" size="icon" className="h-8 w-8 mb-1">
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                      )}
+                    </div>
 
-            {/* Activity Feed */}
-            <Card className="md:flex-1 flex flex-col overflow-hidden min-h-0">
-              <CardHeader className="pb-2 pt-3 px-3 shrink-0">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-0 flex-1 min-h-0 overflow-hidden relative">
-                {visibleUpdates.length === 0 ? (
-                  <div className="text-center py-6 text-muted-foreground/60">
-                    <FileText className="mx-auto h-6 w-6 mb-1.5" />
-                    <p className="text-[10px]">No updates yet</p>
-                    <p className="text-[9px] mt-1">Updates and deliverables will appear here as the team works on this campaign.</p>
-                  </div>
-                ) : (
-                  <div className={`space-y-2 ${showAllUpdates ? 'overflow-y-auto h-full pb-8' : ''}`}>
-                    {(showAllUpdates ? visibleUpdates : visibleUpdates.slice(0, 5)).map((update) => {
-                      const DeliverableLinkIcon = getLinkIcon(update.deliverable_link_type || null);
-                      return (
-                        <div
-                          key={update.id}
-                          className={`rounded-md border p-2 text-xs ${
-                            update.is_deliverable ? 'border-primary/30 bg-primary/5' : ''
-                          }`}
+                    <TabsContent value="client-chat" className="mt-0 flex-1 md:h-[440px]">
+                      <MessageThread projectId={project.id} isInternal={false} />
+                    </TabsContent>
+
+                    {canPostUpdates && (
+                      <TabsContent value="team-notes" className="mt-0 flex-1 md:h-[440px]">
+                        <MessageThread projectId={project.id} isInternal={true} />
+                      </TabsContent>
+                    )}
+                  </Tabs>
+
+                  {canPostUpdates && (
+                    <div className="border-t">
+                      <TeamUpdateForm projectId={project.id} onSubmit={handlePostUpdate} />
+                    </div>
+                  )}
+                </Card>
+              </div>
+
+              {/* ── RIGHT SIDEBAR: Quick Links + Activity ────────────────── */}
+              <div className="flex flex-col gap-4">
+                {/* Quick Links */}
+                {project.company_id && (
+                  <CampaignQuickLinks companyId={project.company_id} />
+                )}
+
+                {/* Activity Feed (preview, max 5) */}
+                <Card className="md:flex-1 flex flex-col overflow-hidden min-h-0">
+                  <CardHeader className="pb-2 pt-3 px-3 shrink-0">
+                    <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Activity
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-3 pb-0 flex-1 min-h-0 overflow-hidden relative">
+                    {visibleUpdates.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground/60">
+                        <FileText className="mx-auto h-6 w-6 mb-1.5" />
+                        <p className="text-[10px]">No updates yet</p>
+                        <p className="text-[9px] mt-1">Updates and deliverables will appear here as the team works on this campaign.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {visibleUpdates.slice(0, 5).map((update) => {
+                          const DeliverableLinkIcon = getLinkIcon(update.deliverable_link_type || null);
+                          return (
+                            <div
+                              key={update.id}
+                              className={`rounded-md border p-2 text-xs ${
+                                update.is_deliverable ? 'border-primary/30 bg-primary/5' : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="font-medium truncate">{update.author_name || 'Team'}</span>
+                                <span className="text-[9px] text-muted-foreground shrink-0 ml-2">
+                                  {format(new Date(update.created_at), 'MMM d')}
+                                </span>
+                              </div>
+                              <p className="text-muted-foreground line-clamp-2">{update.content}</p>
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                {update.is_deliverable && (
+                                  <Badge className="bg-primary/10 text-primary text-[9px] h-3.5 px-1">Deliverable</Badge>
+                                )}
+                                {update.review_type === 'internal' && (
+                                  <Badge variant="outline" className="text-[9px] h-3.5 px-1">Internal</Badge>
+                                )}
+                                {update.hours_logged && (
+                                  <Badge variant="outline" className="text-[9px] h-3.5 px-1">{update.hours_logged}h</Badge>
+                                )}
+                                {update.is_approved === true && (
+                                  <span className="text-[9px] text-emerald-600 flex items-center gap-0.5">
+                                    <CheckCircle2 className="h-2.5 w-2.5" /> Approved
+                                  </span>
+                                )}
+                                {update.is_approved === false && (
+                                  <span className="text-[9px] text-orange-600 flex items-center gap-0.5">
+                                    <XCircle className="h-2.5 w-2.5" /> Changes
+                                  </span>
+                                )}
+                              </div>
+                              {update.deliverable_link && (
+                                <a href={update.deliverable_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
+                                  <DeliverableLinkIcon className="h-2.5 w-2.5" />
+                                  View
+                                  <ExternalLink className="h-2 w-2" />
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {/* Fade gradient + "See all" button */}
+                    {visibleUpdates.length > 5 && (
+                      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent flex items-end justify-center pb-2 px-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-[10px] h-6 text-muted-foreground hover:text-foreground"
+                          onClick={() => setViewMode('activity')}
                         >
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="font-medium truncate">{update.author_name || 'Team'}</span>
-                            <span className="text-[9px] text-muted-foreground shrink-0 ml-2">
-                              {format(new Date(update.created_at), 'MMM d')}
-                            </span>
-                          </div>
-                          <p className="text-muted-foreground line-clamp-2">{update.content}</p>
-                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            {update.is_deliverable && (
-                              <Badge className="bg-primary/10 text-primary text-[9px] h-3.5 px-1">Deliverable</Badge>
-                            )}
-                            {update.review_type === 'internal' && (
-                              <Badge variant="outline" className="text-[9px] h-3.5 px-1">Internal</Badge>
-                            )}
-                            {update.hours_logged && (
-                              <Badge variant="outline" className="text-[9px] h-3.5 px-1">{update.hours_logged}h</Badge>
-                            )}
-                            {update.is_approved === true && (
-                              <span className="text-[9px] text-emerald-600 flex items-center gap-0.5">
-                                <CheckCircle2 className="h-2.5 w-2.5" /> Approved
-                              </span>
-                            )}
-                            {update.is_approved === false && (
-                              <span className="text-[9px] text-orange-600 flex items-center gap-0.5">
-                                <XCircle className="h-2.5 w-2.5" /> Changes
-                              </span>
-                            )}
-                          </div>
-                          {update.deliverable_link && (
-                            <a href={update.deliverable_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
-                              <DeliverableLinkIcon className="h-2.5 w-2.5" />
-                              View
-                              <ExternalLink className="h-2 w-2" />
-                            </a>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {showAllUpdates && visibleUpdates.length > 5 && (
-                      <div className="flex justify-center pb-2">
-                        <Button variant="ghost" size="sm" className="text-[10px] h-6 text-muted-foreground" onClick={() => setShowAllUpdates(false)}>
-                          Show less
+                          See all {visibleUpdates.length} updates
                         </Button>
                       </div>
                     )}
-                  </div>
-                )}
-                {/* Fade gradient + "See all" when collapsed */}
-                {!showAllUpdates && visibleUpdates.length > 5 && (
-                  <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-card via-card/80 to-transparent flex items-end justify-center pb-2 px-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[10px] h-6 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowAllUpdates(true)}
-                    >
-                      See all {visibleUpdates.length} updates
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    {/* Show "See all" even with fewer updates if there are any */}
+                    {visibleUpdates.length > 0 && visibleUpdates.length <= 5 && (
+                      <div className="flex justify-center py-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-[10px] h-6 text-muted-foreground hover:text-foreground"
+                          onClick={() => setViewMode('activity')}
+                        >
+                          See all activity
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+
+          {/* Activity timeline view */}
+          <div className={cn(
+            'transition-all duration-300 ease-in-out',
+            viewMode === 'activity'
+              ? 'opacity-100 translate-y-0'
+              : 'opacity-0 translate-y-2 pointer-events-none absolute inset-0',
+          )}>
+            <ProjectActivityTimeline
+              updates={visibleUpdates}
+              onBack={() => setViewMode('board')}
+            />
           </div>
         </div>
       </div>

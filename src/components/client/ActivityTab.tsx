@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   Bell,
   Check,
+  MessageSquare,
 } from 'lucide-react';
 import { formatDistanceToNow, format, isPast, isToday } from 'date-fns';
 
@@ -37,9 +38,10 @@ const ACTION_ITEM_TYPES: ActivityType[] = [
   'deliverable_review',
 ];
 
+const UPDATE_TYPES: ActivityType[] = ['company_update'];
+
 const ACTIVITY_FILTER_OPTIONS: { label: string; value: ActivityType | 'all' }[] = [
   { label: 'All Activity', value: 'all' },
-  { label: 'Updates', value: 'company_update' },
   { label: 'Hours Logged', value: 'hours_logged' },
   { label: 'Files Uploaded', value: 'file_uploaded' },
   { label: 'Credentials', value: 'credential_added' },
@@ -61,18 +63,19 @@ export function ActivityTab({ companyId }: ActivityTabProps) {
   const { data: reminders = [] } = useReminders(companyId);
   const completeReminder = useCompleteReminder();
 
-  // Only show current user's reminders in action items
   const myReminders = reminders.filter((r) => r.user_id === user?.id);
 
-  // Split into action items vs general activity
+  // 3-way split
   const actionItems = items.filter((i) => ACTION_ITEM_TYPES.includes(i.type));
-  const activityItems = items.filter((i) => !ACTION_ITEM_TYPES.includes(i.type));
+  const updateItems = items.filter((i) => UPDATE_TYPES.includes(i.type));
+  const routineActivity = items.filter(
+    (i) => !ACTION_ITEM_TYPES.includes(i.type) && !UPDATE_TYPES.includes(i.type),
+  );
 
-  // Apply activity type filter
   const filteredActivity =
     activityFilter === 'all'
-      ? activityItems
-      : activityItems.filter((i) => i.type === activityFilter);
+      ? routineActivity
+      : routineActivity.filter((i) => i.type === activityFilter);
 
   if (isLoading) {
     return (
@@ -83,13 +86,13 @@ export function ActivityTab({ companyId }: ActivityTabProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with both buttons */}
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Overview</h3>
           <p className="text-sm text-muted-foreground">
-            Action items, reminders, and activity log for this client.
+            Action items, updates, and activity for this client.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -98,41 +101,41 @@ export function ActivityTab({ companyId }: ActivityTabProps) {
         </div>
       </div>
 
-      {/* Action Items Section */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Bell className="h-4 w-4 text-muted-foreground" />
-          <h4 className="text-sm font-semibold">Action Items</h4>
-          {(actionItems.length + myReminders.length) > 0 && (
-            <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
-              {actionItems.length + myReminders.length}
-            </Badge>
-          )}
-        </div>
-
-        {/* Reminders sub-group */}
-        {myReminders.length > 0 && (
-          <div className="space-y-1.5">
-            {myReminders.map((reminder) => {
-              const overdue =
-                reminder.due_date &&
-                isPast(new Date(reminder.due_date)) &&
-                !isToday(new Date(reminder.due_date));
-              return (
-                <Card
-                  key={reminder.id}
-                  className="border-orange-200 dark:border-orange-800/30"
-                >
-                  <CardContent className="py-2.5 px-3 flex items-start gap-3">
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* LEFT COLUMN */}
+        <div className="space-y-4">
+          {/* Action Items */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-semibold">Action Items</CardTitle>
+                {(actionItems.length + myReminders.length) > 0 && (
+                  <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
+                    {actionItems.length + myReminders.length}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {/* Reminders */}
+              {myReminders.map((reminder) => {
+                const overdue =
+                  reminder.due_date &&
+                  isPast(new Date(reminder.due_date)) &&
+                  !isToday(new Date(reminder.due_date));
+                return (
+                  <div
+                    key={reminder.id}
+                    className="rounded-lg border border-orange-200 dark:border-orange-800/30 p-2.5 flex items-start gap-3"
+                  >
                     <div className="p-1.5 rounded-md shrink-0 bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
                       <Bell className="h-3.5 w-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] h-5 px-1.5"
-                        >
+                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
                           Reminder
                         </Badge>
                         {reminder.due_date && (
@@ -168,87 +171,107 @@ export function ActivityTab({ companyId }: ActivityTabProps) {
                     >
                       <Check className="h-3.5 w-3.5" />
                     </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                  </div>
+                );
+              })}
 
-        {/* Existing action items */}
-        {actionItems.length === 0 && myReminders.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="py-4 flex items-center justify-center gap-2 text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span className="text-sm">
-                No current action items — all caught up!
-              </span>
+              {/* Action items */}
+              {actionItems.map((item) => (
+                <ActivityFeedItem key={item.id} item={item} />
+              ))}
+
+              {/* Empty state */}
+              {actionItems.length === 0 && myReminders.length === 0 && (
+                <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">All caught up!</span>
+                </div>
+              )}
             </CardContent>
           </Card>
-        ) : (
-          <div className="space-y-2">
-            {actionItems.map((item) => (
-              <ActivityFeedItem key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Recent Activity Section */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-muted-foreground" />
-          <h4 className="text-sm font-semibold">Recent Activity</h4>
-          <div className="ml-auto">
-            <Select
-              value={activityFilter}
-              onValueChange={(v) =>
-                setActivityFilter(v as ActivityType | 'all')
-              }
-            >
-              <SelectTrigger className="w-[150px] h-7 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACTIVITY_FILTER_OPTIONS.map((opt) => (
-                  <SelectItem
-                    key={opt.value}
-                    value={opt.value}
-                    className="text-xs"
-                  >
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Updates */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-semibold">Updates</CardTitle>
+                {updateItems.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                    {updateItems.length}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {updateItems.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-4">
+                  No updates posted yet.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {updateItems.map((item) => (
+                    <ActivityFeedItem key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {filteredActivity.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="py-6 text-center text-muted-foreground">
-              <p className="text-sm">
+        {/* RIGHT COLUMN */}
+        <Card className="flex flex-col">
+          <CardHeader className="pb-2 shrink-0">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-semibold">Recent Activity</CardTitle>
+              <div className="ml-auto">
+                <Select
+                  value={activityFilter}
+                  onValueChange={(v) =>
+                    setActivityFilter(v as ActivityType | 'all')
+                  }
+                >
+                  <SelectTrigger className="w-[150px] h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACTIVITY_FILTER_OPTIONS.map((opt) => (
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                        className="text-xs"
+                      >
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 space-y-2">
+            {filteredActivity.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-6">
                 No recent activity matching this filter.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {filteredActivity.map((item) => (
-              <ActivityFeedItem key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-      </div>
+              </div>
+            ) : (
+              filteredActivity.map((item) => (
+                <ActivityFeedItem key={item.id} item={item} />
+              ))
+            )}
 
-      {/* See All link */}
-      <div className="flex justify-center pt-2">
-        <Button variant="outline" size="sm" className="gap-1.5" asChild>
-          <Link to={`/clients/${companyId}/activity`}>
-            See all activity
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </Button>
+            {/* See all activity link */}
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" size="sm" className="gap-1.5" asChild>
+                <Link to={`/clients/${companyId}/activity`}>
+                  See all activity
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

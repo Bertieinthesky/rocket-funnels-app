@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,17 +18,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CampaignTaskCombobox } from './CampaignTaskCombobox';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useProjects } from '@/hooks/useProjects';
-import { useTasks } from '@/hooks/useTasks';
 import { useCreateBatchTimeEntries } from '@/hooks/useTimeEntries';
 import { useCreateUpdate } from '@/hooks/useUpdates';
 import { useToast } from '@/hooks/use-toast';
 import { detectLinkType } from '@/lib/constants';
-import { CalendarIcon, Loader2, Plus, X } from 'lucide-react';
+import {
+  CalendarIcon,
+  Loader2,
+  Plus,
+  X,
+  Mic,
+  MicOff,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react';
 import { format } from 'date-fns';
 
 interface LogTimeDialogProps {
@@ -62,6 +75,76 @@ const emptyRow = (defaultCompanyId?: string, defaultProjectId?: string): TimeEnt
   reviewType: 'external',
 });
 
+// Voice transcription hook using Web Speech API
+function useVoiceTranscription() {
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  const startListening = useCallback(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      return false; // not supported
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    let fullTranscript = '';
+
+    recognition.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          fullTranscript += event.results[i][0].transcript + ' ';
+        }
+      }
+      setTranscript(fullTranscript.trim());
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      if (fullTranscript.trim()) {
+        setShowConfirm(true);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+    setTranscript('');
+    return true;
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+  }, []);
+
+  const accept = useCallback(() => {
+    setShowConfirm(false);
+    const result = transcript;
+    setTranscript('');
+    return result;
+  }, [transcript]);
+
+  const discard = useCallback(() => {
+    setShowConfirm(false);
+    setTranscript('');
+  }, []);
+
+  return { isListening, transcript, showConfirm, startListening, stopListening, accept, discard };
+}
+
 function TimeEntryRowForm({
   row,
   index,
@@ -79,13 +162,33 @@ function TimeEntryRowForm({
   companies: Array<{ id: string; name: string }>;
   allProjects: Array<{ id: string; name: string; company_id: string }>;
 }) {
-  const companyProjects = allProjects.filter((p) => p.company_id === row.companyId);
-  const { data: tasks = [] } = useTasks({
-    projectId: row.projectId && row.projectId !== 'none' ? row.projectId : undefined,
-    includeDone: true,
-  });
+  const voice = useVoiceTranscription();
+  const { toast } = useToast();
 
   const linkType = row.deliverableLink ? detectLinkType(row.deliverableLink) : null;
+
+  const handleVoiceToggle = () => {
+    if (voice.isListening) {
+      voice.stopListening();
+    } else {
+      const started = voice.startListening();
+      if (!started) {
+        toast({
+          title: 'Not supported',
+          description: 'Voice transcription is not supported in this browser. Try Chrome or Edge.',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleAcceptTranscript = () => {
+    const text = voice.accept();
+    const existing = row.description.trim();
+    onChange(index, {
+      description: existing ? `${existing}\n${text}` : text,
+    });
+  };
 
   return (
     <Card className="p-4 space-y-3 relative">
@@ -101,72 +204,41 @@ function TimeEntryRowForm({
         </Button>
       )}
 
-      {/* Client + Campaign row */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Client *</Label>
-          <Select
-            value={row.companyId}
-            onValueChange={(v) =>
-              onChange(index, { companyId: v, projectId: '', taskId: '' })
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Select client" />
-            </SelectTrigger>
-            <SelectContent>
-              {companies.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-xs">Campaign</Label>
-          <Select
-            value={row.projectId}
-            onValueChange={(v) => onChange(index, { projectId: v, taskId: '' })}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Optional" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              {companyProjects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Client */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Client *</Label>
+        <Select
+          value={row.companyId}
+          onValueChange={(v) =>
+            onChange(index, { companyId: v, projectId: '', taskId: '' })
+          }
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Select client" />
+          </SelectTrigger>
+          <SelectContent>
+            {companies.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Task (if campaign selected) */}
-      {row.projectId && row.projectId !== 'none' && tasks.length > 0 && (
-        <div className="space-y-1.5">
-          <Label className="text-xs">Task</Label>
-          <Select
-            value={row.taskId}
-            onValueChange={(v) => onChange(index, { taskId: v })}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Optional" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              {tasks.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Campaign / Task combobox */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Campaign / Task</Label>
+        <CampaignTaskCombobox
+          companyId={row.companyId}
+          projectId={row.projectId}
+          taskId={row.taskId}
+          projects={allProjects}
+          onChange={(projectId, taskId) =>
+            onChange(index, { projectId, taskId })
+          }
+        />
+      </div>
 
       {/* Hours + Date row */}
       <div className="grid grid-cols-2 gap-3">
@@ -208,9 +280,76 @@ function TimeEntryRowForm({
         </div>
       </div>
 
-      {/* Description */}
+      {/* Description + voice */}
       <div className="space-y-1.5">
-        <Label className="text-xs">Description</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Description</Label>
+          <Button
+            type="button"
+            variant={voice.isListening ? 'destructive' : 'ghost'}
+            size="sm"
+            className="h-6 px-2 gap-1 text-xs"
+            onClick={handleVoiceToggle}
+          >
+            {voice.isListening ? (
+              <>
+                <MicOff className="h-3 w-3" />
+                Stop
+              </>
+            ) : (
+              <>
+                <Mic className="h-3 w-3" />
+                Transcribe
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Listening indicator */}
+        {voice.isListening && (
+          <div className="flex items-center gap-2 p-2 rounded-md bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+            </span>
+            <span className="text-xs text-red-600 dark:text-red-400">
+              Listening... speak now
+            </span>
+          </div>
+        )}
+
+        {/* Transcription confirmation */}
+        {voice.showConfirm && (
+          <div className="p-2.5 rounded-md border bg-muted/50 space-y-2">
+            <p className="text-xs font-medium">Transcription:</p>
+            <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+              {voice.transcript}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 gap-1 text-xs"
+                onClick={handleAcceptTranscript}
+              >
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                Accept
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 gap-1 text-xs"
+                onClick={() => voice.discard()}
+              >
+                <XCircle className="h-3 w-3" />
+                Discard
+              </Button>
+            </div>
+          </div>
+        )}
+
         <Textarea
           placeholder="What did you work on?"
           value={row.description}
@@ -299,7 +438,6 @@ export function LogTimeDialog({
   };
 
   const addRow = () => {
-    // Copy client from last row for convenience
     const lastRow = rows[rows.length - 1];
     setRows((prev) => [
       ...prev,
@@ -314,7 +452,6 @@ export function LogTimeDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate all rows
     const invalidRows = rows.filter(
       (r) => !r.companyId || !r.hours || parseFloat(r.hours) <= 0,
     );

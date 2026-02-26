@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -19,7 +19,8 @@ import {
   Pencil,
   Trash2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  StickyNote,
 } from 'lucide-react';
 
 type NoteCategory = 'Meeting Notes' | 'General Info' | 'Project Context';
@@ -48,7 +49,7 @@ const categoryColors: Record<NoteCategory, string> = {
 
 const NOTES_PAGE_SIZE = 50;
 
-export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
+export function ClientNotesCard({ companyId }: ClientNotesTabProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [notes, setNotes] = useState<ClientNote[]>([]);
@@ -97,7 +98,7 @@ export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
       } else {
         setNotes(typedData);
       }
-      
+
       setHasMore((data || []).length === NOTES_PAGE_SIZE);
     } catch (error) {
       console.error('Error fetching notes:', error);
@@ -194,27 +195,17 @@ export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-end">
-          <div className="h-9 w-28 bg-muted rounded animate-pulse" />
-        </div>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-32 bg-muted rounded-lg animate-pulse" />
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Header with Add Button */}
-      <div className="flex justify-end">
+    <Card className="flex flex-col overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between shrink-0 pb-2">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <StickyNote className="h-4 w-4 text-muted-foreground" />
+          Notes
+        </CardTitle>
         <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setDialogOpen(true); }}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button size="sm" variant="outline">
+              <Plus className="h-3.5 w-3.5 mr-1" />
               Add Note
             </Button>
           </DialogTrigger>
@@ -254,63 +245,66 @@ export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+      </CardHeader>
 
-      {/* Notes Feed */}
-      {notes.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="font-medium">No notes yet</p>
-            <p className="text-sm text-muted-foreground mt-1">
+      <CardContent className="flex-1 overflow-y-auto p-0">
+        {loading ? (
+          <div className="px-4 pb-4 space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : notes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+            <FileText className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-sm font-medium">No notes yet</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
               Add your first note to get started
             </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {notes.map((note) => {
-            const isExpanded = expandedNotes.has(note.id);
-            const shouldTruncate = note.content.length > 200;
-            const displayContent = shouldTruncate && !isExpanded 
-              ? note.content.slice(0, 200) + '...' 
-              : note.content;
+          </div>
+        ) : (
+          <div className="px-4 pb-4 space-y-2">
+            {notes.map((note) => {
+              const isExpanded = expandedNotes.has(note.id);
+              const shouldTruncate = note.content.length > 200;
+              const displayContent = shouldTruncate && !isExpanded
+                ? note.content.slice(0, 200) + '...'
+                : note.content;
 
-            return (
-              <Card key={note.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
+              return (
+                <div key={note.id} className="rounded-lg border p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={categoryColors[note.category]}>
+                        <Badge className={`text-[10px] h-5 px-1.5 ${categoryColors[note.category]}`}>
                           {note.category}
                         </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {format(new Date(note.created_at), "MMM d, yyyy 'at' h:mm a")}
+                        <span className="text-[11px] text-muted-foreground">
+                          {format(new Date(note.created_at), "MMM d, yyyy")}
                         </span>
                         {note.author?.full_name && (
-                          <span className="text-sm text-muted-foreground">
-                            • {note.author.full_name}
+                          <span className="text-[11px] text-muted-foreground">
+                            {note.author.full_name}
                           </span>
                         )}
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{displayContent}</p>
                       {shouldTruncate && (
-                        <Button 
-                          variant="link" 
-                          size="sm" 
-                          className="h-auto p-0 text-primary"
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs text-primary"
                           onClick={() => toggleExpand(note.id)}
                         >
                           {isExpanded ? (
                             <>
-                              <ChevronUp className="h-3 w-3 mr-1" />
-                              Show less
+                              <ChevronUp className="h-3 w-3 mr-0.5" />
+                              Less
                             </>
                           ) : (
                             <>
-                              <ChevronDown className="h-3 w-3 mr-1" />
-                              Read more
+                              <ChevronDown className="h-3 w-3 mr-0.5" />
+                              More
                             </>
                           )}
                         </Button>
@@ -319,8 +313,8 @@ export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
                     {note.created_by === user?.id && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                            <MoreVertical className="h-3.5 w-3.5" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -328,7 +322,7 @@ export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => setDeleteNote(note)}
                             className="text-destructive"
                           >
@@ -340,24 +334,25 @@ export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
                     )}
                   </div>
                   <NoteCommentThread noteId={note.id} />
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              );
+            })}
 
-          {hasMore && (
-            <div className="flex justify-center pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => fetchNotes(true)}
-                disabled={loadingMore}
-              >
-                {loadingMore ? 'Loading...' : 'Load More'}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+            {hasMore && (
+              <div className="flex justify-center pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchNotes(true)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading...' : 'Load More'}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteNote} onOpenChange={(open) => !open && setDeleteNote(null)}>
@@ -376,6 +371,9 @@ export function ClientNotesTab({ companyId }: ClientNotesTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </Card>
   );
 }
+
+// Keep old export name for backward compatibility
+export const ClientNotesTab = ClientNotesCard;

@@ -143,6 +143,28 @@ export function useCreateTimeEntry() {
   });
 }
 
+export function useUpdateTimeEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; hours?: number; date?: string; description?: string; project_id?: string | null; task_id?: string | null; is_deliverable?: boolean; deliverable_link?: string | null; deliverable_link_type?: string | null; review_type?: string | null }) => {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['time_entries'] });
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['company'] });
+    },
+  });
+}
+
 export function useDeleteTimeEntry() {
   const queryClient = useQueryClient();
 
