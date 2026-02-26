@@ -20,9 +20,10 @@ import { format } from 'date-fns';
 
 interface TimeEntriesTableProps {
   companyId: string;
+  overageEntryIds?: Set<string>;
 }
 
-export function TimeEntriesTable({ companyId }: TimeEntriesTableProps) {
+export function TimeEntriesTable({ companyId, overageEntryIds }: TimeEntriesTableProps) {
   const { isAdmin, isTeam } = useAuth();
   const { toast } = useToast();
   const { data: entries = [], isLoading } = useTimeEntries({ companyId });
@@ -109,7 +110,14 @@ export function TimeEntriesTable({ companyId }: TimeEntriesTableProps) {
                   )}
                 </TableCell>
                 <TableCell className="text-right font-medium text-sm">
-                  {entry.hours}h
+                  <span className="inline-flex items-center gap-1 justify-end">
+                    {entry.hours}h
+                    {overageEntryIds?.has(entry.id) && (
+                      <Badge variant="destructive" className="text-[9px] h-4 px-1">
+                        Overage
+                      </Badge>
+                    )}
+                  </span>
                 </TableCell>
                 <TableCell className="text-sm max-w-[200px] truncate text-muted-foreground">
                   {entry.description || '—'}

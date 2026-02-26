@@ -1,22 +1,36 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useCompany } from '@/hooks/useCompanies';
 import { useProjects } from '@/hooks/useProjects';
+import { useTimeEntries } from '@/hooks/useTimeEntries';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { FileManagerTab } from '@/components/client/FileManagerTab';
 import { ActivityTab } from '@/components/client/ActivityTab';
 import { HourTracker } from '@/components/client/HourTracker';
+import { BillingHistory } from '@/components/client/BillingHistory';
 import { PasswordsTab } from '@/components/client/PasswordsTab';
 import { InformationTab } from '@/components/client/InformationTab';
 import { LogTimeDialog } from '@/components/time/LogTimeDialog';
 import { TimeEntriesTable } from '@/components/time/TimeEntriesTable';
+import {
+  getAllBillingPeriods,
+  getCurrentBillingPeriod,
+  computePeriodBreakdown,
+} from '@/lib/billing';
 import {
   STATUSES,
   PHASES,
@@ -34,6 +48,7 @@ import {
   KeyRound,
   Clock,
   Loader2,
+  Receipt,
 } from 'lucide-react';
 
 function getInitials(name: string) {
@@ -338,121 +353,230 @@ export default function ClientDetail() {
           {/* Hours */}
           {isRetainer && (
             <TabsContent value="hours">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">Hours Overview</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Monthly hour tracking and usage for this retainer client.
-                    </p>
-                  </div>
-                  {(isTeam || isAdmin) && (
-                    <Button onClick={() => setLogTimeOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Log Time
-                    </Button>
-                  )}
-                </div>
-
-                {/* Quick stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="py-4 text-center">
-                      <p className="text-2xl font-semibold">
-                        {company.hours_used || 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">Hours Used</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="py-4 text-center">
-                      <p className="text-2xl font-semibold">
-                        {Math.max(
-                          (company.hours_allocated || 0) - (company.hours_used || 0),
-                          0,
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Hours Remaining
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="py-4 text-center">
-                      <p className="text-2xl font-semibold">
-                        ${company.hourly_rate?.toFixed(0) || '0'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Hourly Rate
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Monthly Usage</CardTitle>
-                    <CardDescription>
-                      {company.hours_allocated
-                        ? `${company.hours_allocated} hours allocated per month`
-                        : 'No hours allocated'}
-                      {company.hourly_rate
-                        ? ` at $${company.hourly_rate}/hr`
-                        : ''}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <HourTracker
-                      hoursUsed={company.hours_used || 0}
-                      monthlyHours={company.hours_allocated || 0}
-                      showWarning={true}
-                    />
-
-                    {/* Overage info */}
-                    {company.hours_used != null &&
-                      company.hours_allocated != null &&
-                      company.hours_used > company.hours_allocated && (
-                        <div className="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30">
-                          <p className="text-sm font-medium text-red-700 dark:text-red-400">
-                            Overage:{' '}
-                            {(company.hours_used - company.hours_allocated).toFixed(1)} hours
-                          </p>
-                          {company.hourly_rate && (
-                            <p className="text-xs text-red-600 dark:text-red-500 mt-0.5">
-                              Estimated overage cost: $
-                              {(
-                                (company.hours_used - company.hours_allocated) *
-                                (company.hourly_rate * 1.15)
-                              ).toFixed(2)}{' '}
-                              (at ~$
-                              {(company.hourly_rate * 1.15).toFixed(0)}/hr overage rate)
-                            </p>
-                          )}
-                        </div>
-                      )}
-                  </CardContent>
-                </Card>
-
-                {/* Time Entries */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Time Entries</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <TimeEntriesTable companyId={company.id} />
-                  </CardContent>
-                </Card>
-              </div>
-
-              <LogTimeDialog
-                open={logTimeOpen}
-                onOpenChange={setLogTimeOpen}
-                defaultCompanyId={company.id}
+              <HoursTab
+                company={company}
+                isAdmin={isAdmin}
+                isTeam={isTeam}
+                logTimeOpen={logTimeOpen}
+                setLogTimeOpen={setLogTimeOpen}
               />
             </TabsContent>
           )}
         </Tabs>
       </div>
     </DashboardLayout>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hours Tab – period-scoped stats, overage tracking, billing history */
+/* ------------------------------------------------------------------ */
+
+function HoursTab({
+  company,
+  isAdmin,
+  isTeam,
+  logTimeOpen,
+  setLogTimeOpen,
+}: {
+  company: any;
+  isAdmin: boolean;
+  isTeam: boolean;
+  logTimeOpen: boolean;
+  setLogTimeOpen: (open: boolean) => void;
+}) {
+  const paymentSchedule = (company as any).payment_schedule ?? null;
+  const hoursAllocated = company.hours_allocated || 0;
+  const hourlyRate = company.hourly_rate || 0;
+
+  const { data: entries = [] } = useTimeEntries({ companyId: company.id });
+
+  // Compute billing periods from entries
+  const periodGroups = useMemo(
+    () => getAllBillingPeriods(entries, paymentSchedule),
+    [entries, paymentSchedule],
+  );
+
+  const currentPeriod = useMemo(
+    () => getCurrentBillingPeriod(paymentSchedule),
+    [paymentSchedule],
+  );
+
+  // Build sorted period list for the selector (newest first)
+  const periodOptions = useMemo(() => {
+    const opts = [...periodGroups.entries()].map(([key, { period }]) => ({
+      key,
+      label: period.label,
+      start: period.start,
+    }));
+    // Make sure current period is always in the list even if no entries yet
+    if (!opts.find((o) => o.key === currentPeriod.key)) {
+      opts.push({
+        key: currentPeriod.key,
+        label: currentPeriod.label,
+        start: currentPeriod.start,
+      });
+    }
+    return opts.sort((a, b) => b.start.getTime() - a.start.getTime());
+  }, [periodGroups, currentPeriod]);
+
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState(currentPeriod.key);
+
+  // Entries for the selected period
+  const periodEntries = useMemo(() => {
+    const group = periodGroups.get(selectedPeriodKey);
+    return group?.entries || [];
+  }, [periodGroups, selectedPeriodKey]);
+
+  // Period breakdown (overage calculation)
+  const breakdown = useMemo(
+    () => computePeriodBreakdown(periodEntries, hoursAllocated),
+    [periodEntries, hoursAllocated],
+  );
+
+  const selectedLabel =
+    periodOptions.find((o) => o.key === selectedPeriodKey)?.label ||
+    currentPeriod.label;
+
+  return (
+    <>
+      <div className="space-y-6">
+        {/* Header with period selector */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">Hours Overview</h3>
+              <p className="text-sm text-muted-foreground">
+                Billing period usage and tracking.
+              </p>
+            </div>
+            <Select value={selectedPeriodKey} onValueChange={setSelectedPeriodKey}>
+              <SelectTrigger className="h-8 w-[180px] text-xs">
+                <SelectValue>{selectedLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {periodOptions.map((opt) => (
+                  <SelectItem key={opt.key} value={opt.key} className="text-xs">
+                    {opt.label}
+                    {opt.key === currentPeriod.key && ' (Current)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {(isTeam || isAdmin) && (
+            <Button onClick={() => setLogTimeOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Log Time
+            </Button>
+          )}
+        </div>
+
+        {/* Period-scoped quick stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="py-4 text-center">
+              <p className="text-2xl font-semibold">
+                {breakdown.totalHours.toFixed(1)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Hours Used</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4 text-center">
+              <p className="text-2xl font-semibold">
+                {Math.max(hoursAllocated - breakdown.totalHours, 0).toFixed(1)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Hours Remaining
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4 text-center">
+              <p className="text-2xl font-semibold">
+                ${hourlyRate.toFixed(0)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Hourly Rate
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Period usage tracker */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {selectedLabel} Usage
+            </CardTitle>
+            <CardDescription>
+              {hoursAllocated
+                ? `${hoursAllocated} hours allocated`
+                : 'No hours allocated'}
+              {hourlyRate ? ` at $${hourlyRate}/hr` : ''}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HourTracker
+              hoursUsed={breakdown.totalHours}
+              monthlyHours={hoursAllocated}
+              showWarning={true}
+            />
+
+            {/* Overage info */}
+            {breakdown.overageHours > 0 && (
+              <div className="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30">
+                <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                  Overage: {breakdown.overageHours.toFixed(1)} hours
+                </p>
+                {hourlyRate > 0 && (
+                  <p className="text-xs text-red-600 dark:text-red-500 mt-0.5">
+                    Estimated overage cost: $
+                    {(breakdown.overageHours * hourlyRate * 1.15).toFixed(2)} (at
+                    ~${(hourlyRate * 1.15).toFixed(0)}/hr overage rate)
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Time Entries for selected period */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Time Entries — {selectedLabel}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TimeEntriesTable
+              companyId={company.id}
+              overageEntryIds={breakdown.overageEntryIds}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Billing History */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-base font-semibold">Billing History</h3>
+          </div>
+          <BillingHistory
+            companyId={company.id}
+            hoursAllocated={hoursAllocated}
+            hourlyRate={hourlyRate}
+            paymentSchedule={paymentSchedule}
+          />
+        </div>
+      </div>
+
+      <LogTimeDialog
+        open={logTimeOpen}
+        onOpenChange={setLogTimeOpen}
+        defaultCompanyId={company.id}
+      />
+    </>
   );
 }
