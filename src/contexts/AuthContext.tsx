@@ -29,6 +29,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const QUICK_LOGIN_EMAIL = 'tyler@rocketfunnels.com';
 
 export async function quickLogin(password: string): Promise<{ success: boolean; error?: string }> {
+  // Clear any existing session first
+  await supabase.auth.signOut();
+
   const { error } = await supabase.auth.signInWithPassword({
     email: QUICK_LOGIN_EMAIL,
     password,
