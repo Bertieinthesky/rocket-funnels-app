@@ -1,19 +1,33 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CompanyUpdateForm } from './CompanyUpdateForm';
 import { ActivityFeedItem } from './ActivityFeedItem';
-import { useActivityFeed } from '@/hooks/useActivityFeed';
-import { ArrowRight, Loader2, Activity } from 'lucide-react';
+import { useActivityFeed, type ActivityType } from '@/hooks/useActivityFeed';
+import {
+  ArrowRight,
+  Loader2,
+  Activity,
+  CheckCircle2,
+  Bell,
+} from 'lucide-react';
 
 interface ActivityTabProps {
   companyId: string;
 }
 
+const ACTION_ITEM_TYPES: ActivityType[] = [
+  'change_request',
+  'file_flag',
+  'project_blocked',
+  'deliverable_review',
+];
+
 export function ActivityTab({ companyId }: ActivityTabProps) {
   const { data: items = [], isLoading } = useActivityFeed({
     companyId,
-    limit: 20,
+    limit: 30,
   });
 
   if (isLoading) {
@@ -24,37 +38,72 @@ export function ActivityTab({ companyId }: ActivityTabProps) {
     );
   }
 
+  // Split into action items vs general activity
+  const actionItems = items.filter((i) => ACTION_ITEM_TYPES.includes(i.type));
+  const activityItems = items.filter((i) => !ACTION_ITEM_TYPES.includes(i.type));
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header with Post Update button */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Activity</h3>
           <p className="text-sm text-muted-foreground">
-            Updates, action items, and milestones for this client.
+            Action items, updates, and milestones for this client.
           </p>
         </div>
         <CompanyUpdateForm companyId={companyId} />
       </div>
 
-      {/* Activity Feed */}
-      {items.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="font-medium">No activity yet</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Post an update or activity from campaigns and tasks will appear here.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {items.map((item) => (
-            <ActivityFeedItem key={item.id} item={item} />
-          ))}
+      {/* Action Items Section */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-muted-foreground" />
+          <h4 className="text-sm font-semibold">Action Items</h4>
+          {actionItems.length > 0 && (
+            <Badge variant="destructive" className="text-[10px] h-5 px-1.5">
+              {actionItems.length}
+            </Badge>
+          )}
         </div>
-      )}
+
+        {actionItems.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-4 flex items-center justify-center gap-2 text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <span className="text-sm">No current action items — all caught up!</span>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {actionItems.map((item) => (
+              <ActivityFeedItem key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent Activity Section */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Activity className="h-4 w-4 text-muted-foreground" />
+          <h4 className="text-sm font-semibold">Recent Activity</h4>
+        </div>
+
+        {activityItems.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-6 text-center text-muted-foreground">
+              <p className="text-sm">No recent activity. Post an update or complete tasks to see activity here.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {activityItems.map((item) => (
+              <ActivityFeedItem key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* See All link */}
       {items.length >= 20 && (
