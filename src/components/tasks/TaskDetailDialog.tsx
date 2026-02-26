@@ -90,6 +90,13 @@ export function TaskDetailDialog({
 
   const canPostUpdates = isTeam || isAdmin;
 
+  // Reset editing state when switching tasks
+  useEffect(() => {
+    setEditingTitle(false);
+    setEditingDesc(false);
+    setCommentText('');
+  }, [task?.id]);
+
   // Scroll to bottom when new comments appear
   useEffect(() => {
     if (commentsEndRef.current) {

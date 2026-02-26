@@ -214,7 +214,7 @@ export default function Users() {
                       Approve
                     </Button>
                   ) : (
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => setApprovalModalUser(user)}>
                       Edit
                     </Button>
                   )}

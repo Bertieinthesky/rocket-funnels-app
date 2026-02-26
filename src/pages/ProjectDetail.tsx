@@ -436,26 +436,28 @@ export default function ProjectDetail() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-4">
-        {/* ── Layout Toggle (temporary) ─────────────────────────────── */}
-        <div className="flex items-center gap-1 text-[10px]">
-          <span className="text-muted-foreground mr-1">Layout:</span>
-          <Button
-            variant={headerStyle === 'A' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="h-6 px-2 text-[10px] font-medium"
-            onClick={() => setHeaderStyle('A')}
-          >
-            Streamlined
-          </Button>
-          <Button
-            variant={headerStyle === 'B' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="h-6 px-2 text-[10px] font-medium"
-            onClick={() => setHeaderStyle('B')}
-          >
-            Stat Cards
-          </Button>
-        </div>
+        {/* ── Layout Toggle (temporary, team/admin only) ──────────── */}
+        {canPostUpdates && (
+          <div className="flex items-center gap-1 text-[10px]">
+            <span className="text-muted-foreground mr-1">Layout:</span>
+            <Button
+              variant={headerStyle === 'A' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-6 px-2 text-[10px] font-medium"
+              onClick={() => setHeaderStyle('A')}
+            >
+              Streamlined
+            </Button>
+            <Button
+              variant={headerStyle === 'B' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-6 px-2 text-[10px] font-medium"
+              onClick={() => setHeaderStyle('B')}
+            >
+              Stat Cards
+            </Button>
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════
             VARIATION A — Streamlined Inline
@@ -901,6 +903,7 @@ export default function ProjectDetail() {
                   <div className="text-center py-6 text-muted-foreground/60">
                     <FileText className="mx-auto h-6 w-6 mb-1.5" />
                     <p className="text-[10px]">No updates yet</p>
+                    <p className="text-[9px] mt-1">Updates and deliverables will appear here as the team works on this campaign.</p>
                   </div>
                 ) : (
                   <div className={`space-y-2 ${showAllUpdates ? 'overflow-y-auto h-full pb-8' : ''}`}>

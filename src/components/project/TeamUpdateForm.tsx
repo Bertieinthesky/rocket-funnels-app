@@ -146,7 +146,10 @@ export function TeamUpdateForm({ projectId, onSubmit, defaultExpanded }: TeamUpd
             step="0.25"
             min="0"
             value={hoursLogged}
-            onChange={(e) => setHoursLogged(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '' || parseFloat(val) >= 0) setHoursLogged(val);
+            }}
             placeholder="0"
             className="w-20 h-8"
           />

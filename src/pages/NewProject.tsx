@@ -591,7 +591,8 @@ function ClientView() {
           <div>
             <h1 className="text-xl font-semibold">Submit New Request</h1>
             <p className="text-sm text-destructive">
-              Your account isn't linked to a company yet. Please contact the team.
+              Your account isn't linked to a company yet. Please contact us at{' '}
+              <a href="mailto:support@rocketfunnels.com" className="underline">support@rocketfunnels.com</a>.
             </p>
           </div>
         </div>

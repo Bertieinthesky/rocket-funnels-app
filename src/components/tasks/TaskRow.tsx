@@ -107,15 +107,18 @@ export function TaskRow({ task, teamMembers, onUpdate, onDelete, canEdit, onClic
         </TooltipContent>
       </Tooltip>
 
-      {/* Title */}
+      {/* Title + Campaign */}
       <button
         type="button"
-        className={`flex-1 min-w-0 text-sm truncate text-left hover:underline ${
+        className={`flex-1 min-w-0 text-left hover:underline ${
           isDone ? 'line-through text-muted-foreground' : 'text-foreground'
         }`}
         onClick={() => onClickTask?.(task)}
       >
-        {task.title}
+        <span className="text-sm truncate block">{task.title}</span>
+        {task.project_name && (
+          <span className="text-[10px] text-muted-foreground truncate block">{task.project_name}</span>
+        )}
       </button>
 
       {/* Status select */}

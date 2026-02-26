@@ -162,7 +162,7 @@ export function BlockDialog({ project, onBlock, onUnblock }: BlockDialogProps) {
           <Button variant="outline" onClick={() => setBlockOpen(false)}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleBlock}>
+          <Button variant="destructive" onClick={handleBlock} disabled={!reason.trim()}>
             Block Project
           </Button>
         </DialogFooter>

@@ -105,8 +105,8 @@ export function LogTimeDialog({
         hours: numHours,
         date: format(date, 'yyyy-MM-dd'),
         description: description || undefined,
-        project_id: projectId || null,
-        task_id: taskId || null,
+        project_id: projectId && projectId !== 'none' ? projectId : null,
+        task_id: taskId && taskId !== 'none' ? taskId : null,
       });
 
       toast({ title: 'Time logged', description: `${numHours}h recorded.` });
@@ -216,6 +216,7 @@ export function LogTimeDialog({
                     mode="single"
                     selected={date}
                     onSelect={(d) => d && setDate(d)}
+                    disabled={{ after: new Date() }}
                     initialFocus
                   />
                 </PopoverContent>

@@ -131,7 +131,7 @@ export function QuickTaskDialog({
         title: title.trim(),
         description: description || undefined,
         priority,
-        assigned_to: assignedTo || undefined,
+        assigned_to: assignedTo && assignedTo !== 'none' ? assignedTo : undefined,
         due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : undefined,
         created_by: user!.id,
       });

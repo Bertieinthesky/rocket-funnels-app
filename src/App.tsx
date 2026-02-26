@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { DemoModeProvider } from "@/contexts/DemoModeContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Auth from "./pages/Auth";
 import PendingApproval from "./pages/PendingApproval";
 import Dashboard from "./pages/Dashboard";
@@ -45,7 +46,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/pending-approval" replace />;
   }
 
-  return <>{children}</>;
+  return <ErrorBoundary>{children}</ErrorBoundary>;
 }
 
 // Route that only shows for unapproved users
@@ -70,7 +71,7 @@ function PendingApprovalRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <>{children}</>;
+  return <ErrorBoundary>{children}</ErrorBoundary>;
 }
 
 const AppRoutes = () => (

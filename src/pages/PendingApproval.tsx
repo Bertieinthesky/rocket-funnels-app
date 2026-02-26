@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Clock, LogOut, Mail } from 'lucide-react';
 
 export default function PendingApproval() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshApprovalStatus } = useAuth();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
@@ -36,10 +36,24 @@ export default function PendingApproval() {
             </ul>
           </div>
 
-          <div className="pt-2">
-            <Button 
-              variant="outline" 
-              className="w-full"
+          <p className="text-xs text-muted-foreground text-center">
+            Need help? Contact us at{' '}
+            <a href="mailto:support@rocketfunnels.com" className="text-primary hover:underline">
+              support@rocketfunnels.com
+            </a>
+          </p>
+
+          <div className="pt-2 flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => refreshApprovalStatus()}
+            >
+              Check Status
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
               onClick={signOut}
             >
               <LogOut className="h-4 w-4 mr-2" />
