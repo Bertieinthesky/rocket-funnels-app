@@ -25,6 +25,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Dev bypass: check localStorage for quick password access
+const DEV_PASSWORD = 'rocket123';
+const DEV_AUTH_KEY = 'rf-dev-auth';
+
+export function isDevBypassed() {
+  try {
+    return localStorage.getItem(DEV_AUTH_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function devBypassLogin(password: string): boolean {
+  if (password === DEV_PASSWORD) {
+    localStorage.setItem(DEV_AUTH_KEY, 'true');
+    return true;
+  }
+  return false;
+}
+
+export function devBypassLogout() {
+  localStorage.removeItem(DEV_AUTH_KEY);
+}
+
+// Mock admin user for dev bypass
+const DEV_USER: User = {
+  id: 'dev-admin-000',
+  email: 'dev@rocketfunnels.com',
+  app_metadata: {},
+  user_metadata: { full_name: 'Dev Admin' },
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+} as User;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -32,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [rolesLoading, setRolesLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [isApproved, setIsApproved] = useState(false);
+  const [devMode, setDevMode] = useState(isDevBypassed());
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -175,6 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    devBypassLogout();
+    setDevMode(false);
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -182,28 +219,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsApproved(false);
   };
 
-  const hasRole = (role: AppRole) => roles.includes(role);
+  const hasRole = (role: AppRole) => devMode ? role === 'admin' : roles.includes(role);
 
   // Pick a single effective role to avoid UI/permission duplication when a user has multiple role rows.
   // Highest privilege wins: admin > team > client
-  const primaryRole: AppRole = roles.includes('admin')
+  const primaryRole: AppRole = devMode
     ? 'admin'
-    : roles.includes('team')
-      ? 'team'
-      : 'client';
+    : roles.includes('admin')
+      ? 'admin'
+      : roles.includes('team')
+        ? 'team'
+        : 'client';
 
   const isClient = primaryRole === 'client';
   const isTeam = primaryRole === 'team';
   const isAdmin = primaryRole === 'admin';
 
+  const effectiveUser = devMode ? DEV_USER : user;
+  const effectiveLoading = devMode ? false : loading;
+  const effectiveRolesLoading = devMode ? false : rolesLoading;
+
   return (
     <AuthContext.Provider value={{
-      user,
+      user: effectiveUser,
       session,
-      loading,
-      rolesLoading,
-      roles,
-      isApproved,
+      loading: effectiveLoading,
+      rolesLoading: effectiveRolesLoading,
+      roles: devMode ? ['admin'] : roles,
+      isApproved: devMode ? true : isApproved,
       signUp,
       signIn,
       signInWithGoogle,

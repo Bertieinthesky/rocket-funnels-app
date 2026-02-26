@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { devBypassLogin } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,10 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'magic'>('login');
   
+  // Dev access state
+  const [devPassword, setDevPassword] = useState('');
+  const [devError, setDevError] = useState('');
+
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,6 +40,16 @@ export default function Auth() {
       navigate('/dashboard');
     }
   }, [user, navigate]);
+
+  const handleDevAccess = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (devBypassLogin(devPassword)) {
+      window.location.href = '/dashboard';
+    } else {
+      setDevError('Incorrect password');
+      setDevPassword('');
+    }
+  };
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string; name?: string } = {};
@@ -144,13 +159,31 @@ export default function Auth() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold tracking-tight">Rocket Funnels</CardTitle>
-            <CardDescription className="mt-1">
-              {authMode === 'login' && 'Welcome back! Sign in to your account.'}
-              {authMode === 'signup' && 'Create your account to get started.'}
-              {authMode === 'magic' && 'Sign in with a magic link sent to your email.'}
-            </CardDescription>
+            <CardDescription className="mt-1">Enter password to continue</CardDescription>
           </div>
         </CardHeader>
+        <CardContent>
+          <form onSubmit={handleDevAccess} className="space-y-3">
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={devPassword}
+                onChange={(e) => { setDevPassword(e.target.value); setDevError(''); }}
+                className="pl-10"
+                autoFocus
+              />
+            </div>
+            {devError && <p className="text-sm text-destructive">{devError}</p>}
+            <Button type="submit" className="w-full">
+              Continue
+            </Button>
+          </form>
+
+          <Separator className="my-6" />
+          <p className="text-xs text-center text-muted-foreground mb-4">Or sign in with your account</p>
+        </CardContent>
         <CardContent>
           <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as typeof authMode)}>
             <TabsList className="grid w-full grid-cols-3 mb-6">
