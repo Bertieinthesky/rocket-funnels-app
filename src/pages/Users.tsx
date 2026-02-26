@@ -17,7 +17,8 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { UserApprovalModal } from '@/components/users/UserApprovalModal';
-import { Search, Users as UsersIcon, Plus, Loader2, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { InviteUserDialog } from '@/components/users/InviteUserDialog';
+import { Search, Users as UsersIcon, Plus, Loader2, Clock, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface UserProfile {
@@ -45,8 +46,9 @@ export default function Users() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
   
-  // Approval modal
+  // Modals
   const [approvalModalUser, setApprovalModalUser] = useState<UserProfile | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -235,7 +237,7 @@ export default function Users() {
             <h1 className="text-3xl font-bold">Users</h1>
             <p className="text-muted-foreground">Manage team and client accounts</p>
           </div>
-          <Button>
+          <Button onClick={() => setInviteOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Invite User
           </Button>
@@ -302,6 +304,11 @@ export default function Users() {
         onOpenChange={(open) => !open && setApprovalModalUser(null)}
         user={approvalModalUser}
         onApproved={fetchUsers}
+      />
+
+      <InviteUserDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
       />
     </DashboardLayout>
   );
