@@ -25,68 +25,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Dev quick-access: signs into a real Supabase account so RLS works
-const DEV_PASSWORD = 'rocket123';
-const DEV_EMAIL = 'dev@rocketfunnels.com';
-const DEV_SUPABASE_PASSWORD = 'RocketDev123!';
+// Quick login: signs into tyler@rocketfunnels.com with the entered password
+const QUICK_LOGIN_EMAIL = 'tyler@rocketfunnels.com';
 
-export async function devBypassLogin(password: string): Promise<{ success: boolean; error?: string }> {
-  if (password !== DEV_PASSWORD) {
-    return { success: false, error: 'Incorrect password' };
-  }
-
-  // Try signing in first
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: DEV_EMAIL,
-    password: DEV_SUPABASE_PASSWORD,
+export async function quickLogin(password: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.auth.signInWithPassword({
+    email: QUICK_LOGIN_EMAIL,
+    password,
   });
 
-  if (!signInError) {
-    // Signed in successfully — ensure admin role + approval
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await ensureDevAdminSetup(user.id);
-    }
-    return { success: true };
-  }
-
-  // Account doesn't exist — create it
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-    email: DEV_EMAIL,
-    password: DEV_SUPABASE_PASSWORD,
-    options: {
-      data: { full_name: 'Dev Admin' },
-    },
-  });
-
-  if (signUpError) {
-    return { success: false, error: signUpError.message };
-  }
-
-  if (signUpData.user) {
-    await ensureDevAdminSetup(signUpData.user.id);
+  if (error) {
+    return { success: false, error: error.message };
   }
 
   return { success: true };
-}
-
-async function ensureDevAdminSetup(userId: string) {
-  // Ensure admin role exists
-  const { data: existingRoles } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .eq('role', 'admin');
-
-  if (!existingRoles || existingRoles.length === 0) {
-    await supabase.from('user_roles').insert({ user_id: userId, role: 'admin' });
-  }
-
-  // Ensure profile is approved
-  await supabase
-    .from('profiles')
-    .update({ is_approved: true })
-    .eq('id', userId);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
