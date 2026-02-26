@@ -41,13 +41,16 @@ export default function Auth() {
     }
   }, [user, navigate]);
 
-  const handleDevAccess = (e: React.FormEvent) => {
+  const handleDevAccess = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (devBypassLogin(devPassword)) {
+    setIsLoading(true);
+    const result = await devBypassLogin(devPassword);
+    if (result.success) {
       window.location.href = '/dashboard';
     } else {
-      setDevError('Incorrect password');
+      setDevError(result.error || 'Incorrect password');
       setDevPassword('');
+      setIsLoading(false);
     }
   };
 

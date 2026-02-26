@@ -25,39 +25,69 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Dev bypass: check localStorage for quick password access
+// Dev quick-access: signs into a real Supabase account so RLS works
 const DEV_PASSWORD = 'rocket123';
-const DEV_AUTH_KEY = 'rf-dev-auth';
+const DEV_EMAIL = 'dev@rocketfunnels.com';
+const DEV_SUPABASE_PASSWORD = 'RocketDev123!';
 
-export function isDevBypassed() {
-  try {
-    return localStorage.getItem(DEV_AUTH_KEY) === 'true';
-  } catch {
-    return false;
+export async function devBypassLogin(password: string): Promise<{ success: boolean; error?: string }> {
+  if (password !== DEV_PASSWORD) {
+    return { success: false, error: 'Incorrect password' };
   }
-}
 
-export function devBypassLogin(password: string): boolean {
-  if (password === DEV_PASSWORD) {
-    localStorage.setItem(DEV_AUTH_KEY, 'true');
-    return true;
+  // Try signing in first
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: DEV_EMAIL,
+    password: DEV_SUPABASE_PASSWORD,
+  });
+
+  if (!signInError) {
+    // Signed in successfully — ensure admin role + approval
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await ensureDevAdminSetup(user.id);
+    }
+    return { success: true };
   }
-  return false;
+
+  // Account doesn't exist — create it
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email: DEV_EMAIL,
+    password: DEV_SUPABASE_PASSWORD,
+    options: {
+      data: { full_name: 'Dev Admin' },
+    },
+  });
+
+  if (signUpError) {
+    return { success: false, error: signUpError.message };
+  }
+
+  if (signUpData.user) {
+    await ensureDevAdminSetup(signUpData.user.id);
+  }
+
+  return { success: true };
 }
 
-export function devBypassLogout() {
-  localStorage.removeItem(DEV_AUTH_KEY);
-}
+async function ensureDevAdminSetup(userId: string) {
+  // Ensure admin role exists
+  const { data: existingRoles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('role', 'admin');
 
-// Mock admin user for dev bypass
-const DEV_USER: User = {
-  id: 'dev-admin-000',
-  email: 'dev@rocketfunnels.com',
-  app_metadata: {},
-  user_metadata: { full_name: 'Dev Admin' },
-  aud: 'authenticated',
-  created_at: new Date().toISOString(),
-} as User;
+  if (!existingRoles || existingRoles.length === 0) {
+    await supabase.from('user_roles').insert({ user_id: userId, role: 'admin' });
+  }
+
+  // Ensure profile is approved
+  await supabase
+    .from('profiles')
+    .update({ is_approved: true })
+    .eq('id', userId);
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -66,7 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [rolesLoading, setRolesLoading] = useState(true);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [isApproved, setIsApproved] = useState(false);
-  const [devMode, setDevMode] = useState(isDevBypassed());
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -210,8 +239,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    devBypassLogout();
-    setDevMode(false);
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -219,34 +246,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsApproved(false);
   };
 
-  const hasRole = (role: AppRole) => devMode ? role === 'admin' : roles.includes(role);
+  const hasRole = (role: AppRole) => roles.includes(role);
 
   // Pick a single effective role to avoid UI/permission duplication when a user has multiple role rows.
   // Highest privilege wins: admin > team > client
-  const primaryRole: AppRole = devMode
+  const primaryRole: AppRole = roles.includes('admin')
     ? 'admin'
-    : roles.includes('admin')
-      ? 'admin'
-      : roles.includes('team')
-        ? 'team'
-        : 'client';
+    : roles.includes('team')
+      ? 'team'
+      : 'client';
 
   const isClient = primaryRole === 'client';
   const isTeam = primaryRole === 'team';
   const isAdmin = primaryRole === 'admin';
 
-  const effectiveUser = devMode ? DEV_USER : user;
-  const effectiveLoading = devMode ? false : loading;
-  const effectiveRolesLoading = devMode ? false : rolesLoading;
-
   return (
     <AuthContext.Provider value={{
-      user: effectiveUser,
+      user,
       session,
-      loading: effectiveLoading,
-      rolesLoading: effectiveRolesLoading,
-      roles: devMode ? ['admin'] : roles,
-      isApproved: devMode ? true : isApproved,
+      loading,
+      rolesLoading,
+      roles,
+      isApproved,
       signUp,
       signIn,
       signInWithGoogle,
