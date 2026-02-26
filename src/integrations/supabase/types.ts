@@ -97,18 +97,27 @@ export type Database = {
           ai_cmo_url: string | null
           archived_at: string | null
           billing_email: string | null
+          brand_colors: Json | null
+          brand_fonts: Json | null
+          brand_voice: string | null
+          brief_content: string | null
+          brief_link: string | null
+          brief_link_type: string | null
           company_website: string | null
           contact_email: string | null
           created_at: string
           hourly_rate: number | null
           hours_allocated: number | null
           hours_used: number | null
+          icp_description: string | null
           id: string
+          industry: string | null
           invoicing_email: string | null
           is_active: boolean
           logo_url: string | null
           max_concurrent_projects: number | null
           name: string
+          notes: string | null
           payment_schedule: string | null
           poc_name: string | null
           retainer_type: Database["public"]["Enums"]["retainer_type"]
@@ -118,18 +127,27 @@ export type Database = {
           ai_cmo_url?: string | null
           archived_at?: string | null
           billing_email?: string | null
+          brand_colors?: Json | null
+          brand_fonts?: Json | null
+          brand_voice?: string | null
+          brief_content?: string | null
+          brief_link?: string | null
+          brief_link_type?: string | null
           company_website?: string | null
           contact_email?: string | null
           created_at?: string
           hourly_rate?: number | null
           hours_allocated?: number | null
           hours_used?: number | null
+          icp_description?: string | null
           id?: string
+          industry?: string | null
           invoicing_email?: string | null
           is_active?: boolean
           logo_url?: string | null
           max_concurrent_projects?: number | null
           name: string
+          notes?: string | null
           payment_schedule?: string | null
           poc_name?: string | null
           retainer_type?: Database["public"]["Enums"]["retainer_type"]
@@ -139,18 +157,27 @@ export type Database = {
           ai_cmo_url?: string | null
           archived_at?: string | null
           billing_email?: string | null
+          brand_colors?: Json | null
+          brand_fonts?: Json | null
+          brand_voice?: string | null
+          brief_content?: string | null
+          brief_link?: string | null
+          brief_link_type?: string | null
           company_website?: string | null
           contact_email?: string | null
           created_at?: string
           hourly_rate?: number | null
           hours_allocated?: number | null
           hours_used?: number | null
+          icp_description?: string | null
           id?: string
+          industry?: string | null
           invoicing_email?: string | null
           is_active?: boolean
           logo_url?: string | null
           max_concurrent_projects?: number | null
           name?: string
+          notes?: string | null
           payment_schedule?: string | null
           poc_name?: string | null
           retainer_type?: Database["public"]["Enums"]["retainer_type"]
@@ -554,11 +581,14 @@ export type Database = {
           change_request_text: string | null
           content: string
           created_at: string
+          deliverable_link: string | null
+          deliverable_link_type: string | null
           hours_logged: number | null
           id: string
           is_approved: boolean | null
           is_deliverable: boolean
           project_id: string
+          review_type: string | null
         }
         Insert: {
           author_id?: string | null
@@ -569,11 +599,14 @@ export type Database = {
           change_request_text?: string | null
           content: string
           created_at?: string
+          deliverable_link?: string | null
+          deliverable_link_type?: string | null
           hours_logged?: number | null
           id?: string
           is_approved?: boolean | null
           is_deliverable?: boolean
           project_id: string
+          review_type?: string | null
         }
         Update: {
           author_id?: string | null
@@ -584,11 +617,14 @@ export type Database = {
           change_request_text?: string | null
           content?: string
           created_at?: string
+          deliverable_link?: string | null
+          deliverable_link_type?: string | null
           hours_logged?: number | null
           id?: string
           is_approved?: boolean | null
           is_deliverable?: boolean
           project_id?: string
+          review_type?: string | null
         }
         Relationships: [
           {
@@ -632,6 +668,96 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      task_comments: {
+        Row: {
+          id: string
+          task_id: string
+          author_id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          author_id: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          author_id?: string
+          content?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_entries: {
+        Row: {
+          id: string
+          company_id: string
+          project_id: string | null
+          task_id: string | null
+          user_id: string
+          hours: number
+          description: string | null
+          date: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          project_id?: string | null
+          task_id?: string | null
+          user_id: string
+          hours: number
+          description?: string | null
+          date?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          project_id?: string | null
+          task_id?: string | null
+          user_id?: string
+          hours?: number
+          description?: string | null
+          date?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {

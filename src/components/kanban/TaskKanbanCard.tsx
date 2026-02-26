@@ -29,6 +29,7 @@ interface TaskKanbanCardProps {
   task: Task;
   onStatusChange: (id: string, status: string) => void;
   canEdit: boolean;
+  onClickTask?: (task: Task) => void;
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -57,12 +58,15 @@ function getDueInfo(dateStr: string | null | undefined) {
   return { label: format(date, 'MMM d'), className: 'text-muted-foreground' };
 }
 
-export function TaskKanbanCard({ task, onStatusChange, canEdit }: TaskKanbanCardProps) {
+export function TaskKanbanCard({ task, onStatusChange, canEdit, onClickTask }: TaskKanbanCardProps) {
   const priority = PRIORITIES[(task.priority as Priority) || 'normal'];
   const dueInfo = getDueInfo(task.due_date);
 
   return (
-    <Card className="transition-all duration-150 hover:shadow-md hover:border-foreground/20 hover:translate-y-[-1px]">
+    <Card
+      className="transition-all duration-150 hover:shadow-md hover:border-foreground/20 hover:translate-y-[-1px] cursor-pointer"
+      onClick={() => onClickTask?.(task)}
+    >
       <CardContent className="p-3 space-y-2">
         {/* Row 1: Priority dot + Title */}
         <div className="flex items-start gap-2">

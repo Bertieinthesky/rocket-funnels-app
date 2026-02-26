@@ -93,15 +93,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Navigation items based on role
   const clientNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/projects', icon: FolderKanban, label: 'Campaigns' },
+    { to: '/projects', icon: FolderKanban, label: 'Projects' },
     { to: '/files', icon: FileText, label: 'Files' },
   ];
 
   const teamNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/clients', icon: Building2, label: 'Clients' },
-    { to: '/projects', icon: FolderKanban, label: 'Campaigns' },
-    { to: '/kanban', icon: Kanban, label: 'Kanban' },
+    { to: '/projects', icon: FolderKanban, label: 'Projects' },
+    { to: '/kanban', icon: Kanban, label: 'Tasks' },
     { to: '/action-items', icon: AlertCircle, label: 'Action Items' },
     { to: '/files', icon: FileText, label: 'Files' },
   ];
@@ -109,8 +109,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const adminNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/clients', icon: Building2, label: 'Clients' },
-    { to: '/projects', icon: FolderKanban, label: 'Campaigns' },
-    { to: '/kanban', icon: Kanban, label: 'Kanban' },
+    { to: '/projects', icon: FolderKanban, label: 'Projects' },
+    { to: '/kanban', icon: Kanban, label: 'Tasks' },
     { to: '/action-items', icon: AlertCircle, label: 'Action Items' },
     { to: '/files', icon: FileText, label: 'Files' },
     { to: '/users', icon: Users, label: 'Users' },
@@ -130,31 +130,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <Sidebar>
-          {/* Branded header */}
-          <SidebarHeader className="relative border-b border-sidebar-border px-4 py-5">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+          {/* Branded header — refined */}
+          <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                <Rocket className="h-5 w-5 text-white -rotate-45" />
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                <Rocket className="h-4 w-4 text-white" />
               </div>
-              <div>
-                <span className="font-semibold text-[15px] tracking-tight text-sidebar-accent-foreground">
-                  Rocket Funnels
-                </span>
-              </div>
+              <span className="font-semibold text-[15px] tracking-tight text-sidebar-accent-foreground">
+                Rocket Funnels
+              </span>
             </div>
           </SidebarHeader>
 
           {/* Navigation */}
-          <SidebarContent className="px-3 py-4">
+          <SidebarContent className="px-3 py-3">
             <SidebarMenu className="space-y-0.5">
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.to}
-                      className="relative flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-white/[0.06]"
-                      activeClassName="text-sidebar-accent-foreground bg-white/[0.08] before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-0.5 before:rounded-full before:bg-orange-500"
+                      className="relative flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-white/[0.06]"
+                      activeClassName="text-sidebar-accent-foreground bg-white/[0.08] before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-4 before:w-0.5 before:rounded-full before:bg-primary"
                     >
                       <item.icon className="h-4 w-4" />
                       <span className="text-sm">{item.label}</span>
@@ -165,14 +162,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </SidebarMenu>
           </SidebarContent>
 
-          <SidebarFooter className="border-t border-sidebar-border p-4 space-y-4">
+          <SidebarFooter className="border-t border-sidebar-border p-4 space-y-3">
             {/* Demo Mode Toggle - Only for Admins */}
             {canUseDemoMode && (
-              <div className="rounded-lg border border-orange-500/20 bg-orange-500/[0.06] p-3 space-y-3">
+              <div className="rounded-md border border-sidebar-border bg-white/[0.03] p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-orange-400" />
-                    <Label htmlFor="demo-mode" className="text-sm font-medium text-sidebar-accent-foreground">
+                    <Eye className="h-3.5 w-3.5 text-sidebar-foreground" />
+                    <Label htmlFor="demo-mode" className="text-xs font-medium text-sidebar-accent-foreground">
                       Demo Mode
                     </Label>
                   </div>
@@ -200,9 +197,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* User Info */}
             <div className="flex items-center gap-3">
-              <Avatar className="h-9 w-9 ring-2 ring-white/10">
+              <Avatar className="h-8 w-8 ring-1 ring-white/10">
                 <AvatarImage src="" />
-                <AvatarFallback className="bg-gradient-to-br from-orange-500 to-orange-600 text-white text-sm font-medium">
+                <AvatarFallback className="bg-primary text-white text-xs font-medium">
                   {getInitials(user.user_metadata?.full_name, user.email)}
                 </AvatarFallback>
               </Avatar>
@@ -212,11 +209,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </p>
                 <div className="flex items-center gap-1">
                   {isDemoMode ? (
-                    <Badge variant="outline" className="text-[10px] border-orange-500/40 text-orange-400">
+                    <Badge variant="outline" className="text-[10px] border-sidebar-border text-sidebar-foreground">
                       {getRoleLabel()}
                     </Badge>
                   ) : (
-                    <p className="text-xs text-sidebar-foreground/60">
+                    <p className="text-[11px] text-sidebar-foreground/60">
                       {getRoleLabel()}
                     </p>
                   )}
@@ -226,7 +223,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 variant="ghost"
                 size="icon"
                 onClick={handleSignOut}
-                className="text-sidebar-foreground/50 hover:text-sidebar-accent-foreground hover:bg-white/[0.06]"
+                className="h-8 w-8 text-sidebar-foreground/50 hover:text-sidebar-accent-foreground hover:bg-white/[0.06]"
               >
                 <LogOut className="h-4 w-4" />
               </Button>
@@ -235,10 +232,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </Sidebar>
 
         <SidebarInset className="flex-1">
-          <header className="flex h-14 items-center gap-4 border-b bg-background px-6">
+          <header className="flex h-14 items-center gap-4 border-b bg-background px-4 md:px-6">
             <SidebarTrigger />
             {isDemoMode && (
-              <Badge variant="outline" className="border-orange-500/40 text-orange-600">
+              <Badge variant="outline" className="text-xs">
                 <Eye className="h-3 w-3 mr-1" />
                 Viewing as {demoView}
               </Badge>
@@ -246,7 +243,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="flex-1" />
             <NotificationCenter />
           </header>
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-4 md:p-6">
             {children}
           </main>
         </SidebarInset>

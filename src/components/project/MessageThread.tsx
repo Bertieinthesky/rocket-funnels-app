@@ -99,7 +99,7 @@ export function MessageThread({ projectId, isInternal }: MessageThreadProps) {
   const detectedPlatform = linkUrl ? detectExternalPlatform(linkUrl) : null;
 
   return (
-    <div className="flex flex-col h-[400px]">
+    <div className="flex flex-col h-full min-h-[300px]">
       {/* Messages area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
         {isLoading ? (

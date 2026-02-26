@@ -1,4 +1,5 @@
-import { Link, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useCompany } from '@/hooks/useCompanies';
@@ -15,6 +16,9 @@ import { FileManagerTab } from '@/components/client/FileManagerTab';
 import { ActionItemsTab } from '@/components/client/ActionItemsTab';
 import { HourTracker } from '@/components/client/HourTracker';
 import { PasswordsTab } from '@/components/client/PasswordsTab';
+import { ClientBriefTab } from '@/components/client/ClientBriefTab';
+import { LogTimeDialog } from '@/components/time/LogTimeDialog';
+import { TimeEntriesTable } from '@/components/time/TimeEntriesTable';
 import {
   STATUSES,
   PHASES,
@@ -46,8 +50,11 @@ function getInitials(name: string) {
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const { isTeam, isAdmin } = useAuth();
   const { canEditCompanyInfo } = usePermissions();
+  const [logTimeOpen, setLogTimeOpen] = useState(false);
+  const initialTab = searchParams.get('tab') || 'action-items';
 
   const { data: company, isLoading: companyLoading, refetch: refetchCompany } = useCompany(id);
   const { data: projects = [], isLoading: projectsLoading } = useProjects({
@@ -186,7 +193,7 @@ export default function ClientDetail() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="action-items" className="space-y-4">
+        <Tabs defaultValue={initialTab} className="space-y-4">
           <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="action-items" className="gap-1.5">
               <AlertCircle className="h-3.5 w-3.5" />
@@ -199,6 +206,10 @@ export default function ClientDetail() {
             <TabsTrigger value="company-info" className="gap-1.5">
               <Building2 className="h-3.5 w-3.5" />
               Info
+            </TabsTrigger>
+            <TabsTrigger value="brief" className="gap-1.5">
+              <FileText className="h-3.5 w-3.5" />
+              Brief
             </TabsTrigger>
             <TabsTrigger value="notes" className="gap-1.5">
               <StickyNote className="h-3.5 w-3.5" />
@@ -314,6 +325,11 @@ export default function ClientDetail() {
             <CompanyInfoTab company={company} onUpdate={() => refetchCompany()} />
           </TabsContent>
 
+          {/* Client Brief */}
+          <TabsContent value="brief">
+            <ClientBriefTab company={company} />
+          </TabsContent>
+
           {/* Notes */}
           <TabsContent value="notes">
             <ClientNotesTab companyId={company.id} />
@@ -335,12 +351,55 @@ export default function ClientDetail() {
           {/* Hours */}
           {isRetainer && (
             <TabsContent value="hours">
-              <div className="max-w-2xl space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold">Hours Overview</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Monthly hour tracking and usage for this retainer client.
-                  </p>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Hours Overview</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Monthly hour tracking and usage for this retainer client.
+                    </p>
+                  </div>
+                  {(isTeam || isAdmin) && (
+                    <Button onClick={() => setLogTimeOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Log Time
+                    </Button>
+                  )}
+                </div>
+
+                {/* Quick stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="py-4 text-center">
+                      <p className="text-2xl font-semibold">
+                        {company.hours_used || 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">Hours Used</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="py-4 text-center">
+                      <p className="text-2xl font-semibold">
+                        {Math.max(
+                          (company.hours_allocated || 0) - (company.hours_used || 0),
+                          0,
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Hours Remaining
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="py-4 text-center">
+                      <p className="text-2xl font-semibold">
+                        ${company.hourly_rate?.toFixed(0) || '0'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Hourly Rate
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
 
                 <Card>
@@ -387,41 +446,22 @@ export default function ClientDetail() {
                   </CardContent>
                 </Card>
 
-                {/* Quick stats */}
-                <div className="grid grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="py-4 text-center">
-                      <p className="text-2xl font-semibold">
-                        {company.hours_used || 0}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">Hours Used</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="py-4 text-center">
-                      <p className="text-2xl font-semibold">
-                        {Math.max(
-                          (company.hours_allocated || 0) - (company.hours_used || 0),
-                          0,
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Hours Remaining
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="py-4 text-center">
-                      <p className="text-2xl font-semibold">
-                        ${company.hourly_rate?.toFixed(0) || '0'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Hourly Rate
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+                {/* Time Entries */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Time Entries</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <TimeEntriesTable companyId={company.id} />
+                  </CardContent>
+                </Card>
               </div>
+
+              <LogTimeDialog
+                open={logTimeOpen}
+                onOpenChange={setLogTimeOpen}
+                defaultCompanyId={company.id}
+              />
             </TabsContent>
           )}
         </Tabs>

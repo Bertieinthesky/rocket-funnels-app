@@ -7,8 +7,10 @@ import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { TaskRow } from './TaskRow';
+import { TaskDetailDialog } from './TaskDetailDialog';
 import { AddTaskForm } from './AddTaskForm';
 import { Plus, CheckSquare, Loader2 } from 'lucide-react';
+import type { Task } from '@/hooks/useTasks';
 
 interface TaskListProps {
   projectId: string;
@@ -19,6 +21,7 @@ export function TaskList({ projectId, canEdit }: TaskListProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const { data: tasks = [], isLoading } = useTasks({ projectId, includeDone: true });
   const { data: teamMembers = [] } = useTeamMembers();
@@ -154,6 +157,7 @@ export function TaskList({ projectId, canEdit }: TaskListProps) {
                 onUpdate={handleUpdateTask}
                 onDelete={handleDeleteTask}
                 canEdit={canEdit}
+                onClickTask={setSelectedTask}
               />
             ))}
           </div>
@@ -171,6 +175,13 @@ export function TaskList({ projectId, canEdit }: TaskListProps) {
           </div>
         )}
       </CardContent>
+
+      <TaskDetailDialog
+        task={selectedTask}
+        open={!!selectedTask}
+        onOpenChange={(open) => { if (!open) setSelectedTask(null); }}
+        canEdit={canEdit}
+      />
     </Card>
   );
 }

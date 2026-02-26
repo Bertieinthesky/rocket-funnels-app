@@ -35,6 +35,8 @@ import {
   FolderKanban,
 } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
+import { QuickTaskDialog } from '@/components/tasks/QuickTaskDialog';
+import { HealthBadge } from '@/components/campaigns/HealthBadge';
 import type { Project } from '@/hooks/useProjects';
 import type { Task } from '@/hooks/useTasks';
 
@@ -139,6 +141,8 @@ function CampaignCard({ project, tasks, assigneeName }: CampaignCardProps) {
               {phase.label}
             </Badge>
 
+            <HealthBadge projectId={project.id} />
+
             {totalTasks > 0 && (
               <span className="flex items-center gap-1 text-muted-foreground">
                 <CheckSquare className="h-3 w-3" />
@@ -192,6 +196,7 @@ export default function Projects() {
   const { isClient, isTeam, isAdmin } = useAuth();
   const { isDemoMode, demoView } = useDemoMode();
   const [activeTab, setActiveTab] = useState('active');
+  const [quickTaskOpen, setQuickTaskOpen] = useState(false);
 
   const effectiveIsClient = isDemoMode ? demoView === 'client' : isClient;
   const effectiveIsTeam = isDemoMode ? demoView === 'team' || demoView === 'admin' : isTeam || isAdmin;
@@ -236,7 +241,7 @@ export default function Projects() {
   return (
     <DashboardLayout>
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
             <p className="text-sm text-muted-foreground">
@@ -255,12 +260,18 @@ export default function Projects() {
             </Button>
           )}
           {effectiveIsTeam && (
-            <Button asChild>
-              <Link to="/projects/new">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setQuickTaskOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                New Campaign
-              </Link>
-            </Button>
+                New Task
+              </Button>
+              <Button asChild>
+                <Link to="/projects/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Campaign
+                </Link>
+              </Button>
+            </div>
           )}
         </div>
 
@@ -324,6 +335,11 @@ export default function Projects() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <QuickTaskDialog
+        open={quickTaskOpen}
+        onOpenChange={setQuickTaskOpen}
+      />
     </DashboardLayout>
   );
 }

@@ -1,0 +1,134 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useTimeEntries, useDeleteTimeEntry, type TimeEntry } from '@/hooks/useTimeEntries';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { Trash2, Clock, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+
+interface TimeEntriesTableProps {
+  companyId: string;
+}
+
+export function TimeEntriesTable({ companyId }: TimeEntriesTableProps) {
+  const { isAdmin } = useAuth();
+  const { toast } = useToast();
+  const { data: entries = [], isLoading } = useTimeEntries({ companyId });
+  const deleteEntry = useDeleteTimeEntry();
+
+  const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
+
+  const handleDelete = async (entry: TimeEntry) => {
+    try {
+      await deleteEntry.mutateAsync(entry.id);
+      toast({ title: 'Entry deleted', description: `${entry.hours}h removed.` });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete entry.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+        <p className="text-sm text-muted-foreground">
+          No time entries yet. Click "Log Time" to get started.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Team Member</TableHead>
+            <TableHead>Campaign</TableHead>
+            <TableHead>Task</TableHead>
+            <TableHead className="text-right">Hours</TableHead>
+            <TableHead>Description</TableHead>
+            {isAdmin && <TableHead className="w-10" />}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.map((entry) => (
+            <TableRow key={entry.id}>
+              <TableCell className="whitespace-nowrap text-sm">
+                {format(new Date(entry.date + 'T00:00:00'), 'MMM d, yyyy')}
+              </TableCell>
+              <TableCell className="text-sm">
+                {entry.user_name || entry.user_email || 'Unknown'}
+              </TableCell>
+              <TableCell className="text-sm">
+                {entry.project_name ? (
+                  <Badge variant="secondary" className="text-xs">
+                    {entry.project_name}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell className="text-sm max-w-[150px] truncate">
+                {entry.task_title || (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell className="text-right font-medium text-sm">
+                {entry.hours}h
+              </TableCell>
+              <TableCell className="text-sm max-w-[200px] truncate text-muted-foreground">
+                {entry.description || '—'}
+              </TableCell>
+              {isAdmin && (
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDelete(entry)}
+                    disabled={deleteEntry.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+
+          {/* Total row */}
+          <TableRow className="border-t-2 font-medium">
+            <TableCell colSpan={4} className="text-sm">
+              Total
+            </TableCell>
+            <TableCell className="text-right text-sm">
+              {totalHours.toFixed(1)}h
+            </TableCell>
+            <TableCell colSpan={isAdmin ? 2 : 1} />
+          </TableRow>
+        </TableBody>
+      </Table>
+    </div>
+  );
+}

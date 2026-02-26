@@ -33,6 +33,7 @@ interface TaskRowProps {
   onUpdate: (id: string, updates: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
   canEdit: boolean;
+  onClickTask?: (task: Task) => void;
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -61,7 +62,7 @@ function getDueInfo(dateStr: string | null | undefined) {
   return { label: format(date, 'MMM d'), className: 'text-muted-foreground', color: '' };
 }
 
-export function TaskRow({ task, teamMembers, onUpdate, onDelete, canEdit }: TaskRowProps) {
+export function TaskRow({ task, teamMembers, onUpdate, onDelete, canEdit, onClickTask }: TaskRowProps) {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const isDone = task.status === 'done';
   const priority = PRIORITIES[(task.priority as Priority) || 'normal'];
@@ -107,11 +108,15 @@ export function TaskRow({ task, teamMembers, onUpdate, onDelete, canEdit }: Task
       </Tooltip>
 
       {/* Title */}
-      <span className={`flex-1 min-w-0 text-sm truncate ${
-        isDone ? 'line-through text-muted-foreground' : 'text-foreground'
-      }`}>
+      <button
+        type="button"
+        className={`flex-1 min-w-0 text-sm truncate text-left hover:underline ${
+          isDone ? 'line-through text-muted-foreground' : 'text-foreground'
+        }`}
+        onClick={() => onClickTask?.(task)}
+      >
         {task.title}
-      </span>
+      </button>
 
       {/* Status select */}
       {canEdit && !isDone && (

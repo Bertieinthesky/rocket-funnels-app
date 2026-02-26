@@ -20,6 +20,7 @@ export interface KanbanFilterState {
   campaign: string;
   priority: string;
   assignedTo: string;
+  retainerType: string;
   blockedOnly: boolean;
   showCompleted: boolean;
 }
@@ -54,6 +55,7 @@ export function KanbanFilters({
     filters.campaign !== 'all' ||
     filters.priority !== 'all' ||
     filters.assignedTo !== 'all' ||
+    filters.retainerType !== 'all' ||
     filters.blockedOnly;
 
   const clearAll = () =>
@@ -62,6 +64,7 @@ export function KanbanFilters({
       campaign: 'all',
       priority: 'all',
       assignedTo: 'all',
+      retainerType: 'all',
       blockedOnly: false,
       showCompleted: filters.showCompleted,
     });
@@ -88,13 +91,25 @@ export function KanbanFilters({
         </SelectContent>
       </Select>
 
-      {/* Campaign */}
-      <Select value={filters.campaign} onValueChange={(v) => set('campaign', v)}>
-        <SelectTrigger className="h-8 w-[160px] text-xs bg-background">
-          <SelectValue placeholder="All Campaigns" />
+      {/* Retainer Type */}
+      <Select value={filters.retainerType} onValueChange={(v) => set('retainerType', v)}>
+        <SelectTrigger className="h-8 w-[130px] text-xs bg-background">
+          <SelectValue placeholder="All Types" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Campaigns</SelectItem>
+          <SelectItem value="all">All Types</SelectItem>
+          <SelectItem value="retainer">Retainer</SelectItem>
+          <SelectItem value="one_time">One-Time</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Project */}
+      <Select value={filters.campaign} onValueChange={(v) => set('campaign', v)}>
+        <SelectTrigger className="h-8 w-[160px] text-xs bg-background">
+          <SelectValue placeholder="All Projects" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Projects</SelectItem>
           {campaigns.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               {c.name}
