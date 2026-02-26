@@ -18,6 +18,7 @@ import { useUpdates, useCreateUpdate, useUpdateUpdate } from '@/hooks/useUpdates
 import { useCreateTimeEntry } from '@/hooks/useTimeEntries';
 import { ChangeRequestModal } from '@/components/project/ChangeRequestModal';
 import { TeamUpdateForm } from '@/components/project/TeamUpdateForm';
+import { PostUpdateDialog } from '@/components/project/PostUpdateDialog';
 import { MessageThread } from '@/components/project/MessageThread';
 import { BlockDialog } from '@/components/project/BlockDialog';
 import { PhaseAdvancer } from '@/components/project/PhaseAdvancer';
@@ -46,6 +47,8 @@ import {
   MessageSquare,
   StickyNote,
   Package,
+  Plus,
+  Send,
   Link as LinkIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -541,7 +544,19 @@ export default function ProjectDetail() {
               </div>
 
               {canPostUpdates && (
-                <BlockDialog project={project} onBlock={handleBlock} onUnblock={handleUnblock} />
+                <div className="flex items-center gap-2 shrink-0">
+                  <PostUpdateDialog
+                    projectId={project.id}
+                    onSubmit={handlePostUpdate}
+                    trigger={
+                      <Button size="sm" className="gap-1.5">
+                        <Send className="h-3.5 w-3.5" />
+                        Post Update
+                      </Button>
+                    }
+                  />
+                  <BlockDialog project={project} onBlock={handleBlock} onUnblock={handleUnblock} />
+                </div>
               )}
             </div>
 
@@ -588,7 +603,19 @@ export default function ProjectDetail() {
               </div>
 
               {canPostUpdates && (
-                <BlockDialog project={project} onBlock={handleBlock} onUnblock={handleUnblock} />
+                <div className="flex items-center gap-2 shrink-0">
+                  <PostUpdateDialog
+                    projectId={project.id}
+                    onSubmit={handlePostUpdate}
+                    trigger={
+                      <Button size="sm" className="gap-1.5">
+                        <Send className="h-3.5 w-3.5" />
+                        Post Update
+                      </Button>
+                    }
+                  />
+                  <BlockDialog project={project} onBlock={handleBlock} onUnblock={handleUnblock} />
+                </div>
               )}
             </div>
 
@@ -810,7 +837,7 @@ export default function ProjectDetail() {
             {/* Chat + Team Update Form */}
             <Card className="flex flex-col overflow-hidden">
               <Tabs defaultValue="client-chat" className="flex flex-col flex-1">
-                <div className="border-b px-4 pt-3 pb-0 shrink-0">
+                <div className="border-b px-4 pt-3 pb-0 shrink-0 flex items-end justify-between">
                   <TabsList className="h-9">
                     <TabsTrigger value="client-chat" className="text-xs gap-1.5 h-8 px-4">
                       <MessageSquare className="h-3.5 w-3.5" />
@@ -823,6 +850,17 @@ export default function ProjectDetail() {
                       </TabsTrigger>
                     )}
                   </TabsList>
+                  {canPostUpdates && (
+                    <PostUpdateDialog
+                      projectId={project.id}
+                      onSubmit={handlePostUpdate}
+                      trigger={
+                        <Button variant="ghost" size="icon" className="h-8 w-8 mb-1">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      }
+                    />
+                  )}
                 </div>
 
                 <TabsContent value="client-chat" className="mt-0 flex-1 md:h-[440px]">
